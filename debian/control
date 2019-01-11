@@ -102,6 +102,7 @@ Depends: ${shlibs:Depends},
          python3-distutils,
          python3-mako,
          python3-markdown
+Provides: dh-sequence-gir
 Description: Generate interface introspection data for GObject libraries
  GObject Introspection is a project for providing machine readable
  introspection data of the API of C libraries. This introspection
