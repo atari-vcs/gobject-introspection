@@ -1,3 +1,9 @@
+gobject-introspection (1.58.3-2) unstable; urgency=medium
+
+  * Add Provides: dh-sequence-gir
+
+ -- Jeremy Bicha <jbicha@debian.org>  Thu, 10 Jan 2019 23:28:15 -0500
+
 gobject-introspection (1.58.3-1) unstable; urgency=medium
 
   * New upstream release
