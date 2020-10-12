@@ -19,11 +19,6 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import copy
 import operator
 from itertools import chain
@@ -31,6 +26,7 @@ from collections import OrderedDict
 
 from . import message
 
+from .sourcescanner import CTYPE_TYPEDEF, CSYMBOL_TYPE_TYPEDEF
 from .message import Position
 from .utils import to_underscores
 
@@ -565,6 +561,7 @@ properties."""
         self.deprecated = None
         self.deprecated_doc = None
         self.doc = None
+        self.doc_position = None
 
 
 class Node(Annotated):
@@ -632,9 +629,23 @@ GIName.  It's possible for nodes to contain or point to other nodes."""
     def add_file_position(self, position):
         self.file_positions.add(position)
 
+    def get_main_position(self):
+        if not self.file_positions:
+            return None
+
+        res = None
+        for position in self.file_positions:
+            if position.is_typedef:
+                res = position
+            else:
+                return position
+
+        return res
+
     def add_symbol_reference(self, symbol):
         if symbol.source_filename:
-            self.add_file_position(Position(symbol.source_filename, symbol.line))
+            self.add_file_position(Position(symbol.source_filename, symbol.line,
+                is_typedef=symbol.type in (CTYPE_TYPEDEF, CSYMBOL_TYPE_TYPEDEF)))
 
     def walk(self, callback, chain):
         res = callback(self, chain)
@@ -647,6 +658,11 @@ GIName.  It's possible for nodes to contain or point to other nodes."""
 
     def _walk(self, callback, chain):
         pass
+
+
+class DocSection(Node):
+    def __init__(self, name=None):
+        Node.__init__(self, name)
 
 
 class Registered:
@@ -715,6 +731,14 @@ class Callable(Node):
             if parameter.argname == name:
                 return parameter
         raise ValueError("Unknown argument %s" % (name, ))
+
+
+class FunctionMacro(Node):
+    def __init__(self, name, parameters, symbol):
+        Node.__init__(self, name)
+        self.symbol = symbol
+        self.parameters = parameters
+        self.introspectable = False
 
 
 class Function(Callable):
@@ -857,7 +881,7 @@ class TypeContainer(Annotated):
         self.direction = direction
         if transfer is not None:
             self.transfer = transfer
-        elif typenode.is_const:
+        elif typenode and typenode.is_const:
             self.transfer = PARAM_TRANSFER_NONE
         else:
             self.transfer = None

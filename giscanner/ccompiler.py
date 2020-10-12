@@ -29,9 +29,74 @@ import distutils
 from distutils.msvccompiler import MSVCCompiler
 from distutils.unixccompiler import UnixCCompiler
 from distutils.cygwinccompiler import Mingw32CCompiler
-from distutils.sysconfig import customize_compiler
+from distutils.sysconfig import get_config_vars
+from distutils.sysconfig import customize_compiler as orig_customize_compiler
 
 from . import utils
+
+
+def customize_compiler(compiler):
+    """This is a version of distutils.sysconfig.customize_compiler, without
+    any macOS specific bits and which tries to avoid using any Python specific
+    defaults if alternatives through env vars are given.
+    """
+
+    # The original customize_compiler() in distutils calls into macOS setup
+    # code the first time it is called. This makes sure we run that setup
+    # code as well.
+    dummy = distutils.ccompiler.new_compiler()
+    orig_customize_compiler(dummy)
+
+    if compiler.compiler_type == "unix":
+        (cc, cxx, ldshared, shlib_suffix, ar, ar_flags) = \
+            get_config_vars('CC', 'CXX', 'LDSHARED', 'SHLIB_SUFFIX', 'AR', 'ARFLAGS')
+
+        if 'CC' in os.environ:
+            newcc = os.environ['CC']
+            if 'LDSHARED' not in os.environ and ldshared.startswith(cc):
+                ldshared = newcc + ldshared[len(cc):]
+            cc = newcc
+        if 'CXX' in os.environ:
+            cxx = os.environ['CXX']
+        if 'LDSHARED' in os.environ:
+            ldshared = os.environ['LDSHARED']
+        if 'CPP' in os.environ:
+            cpp = os.environ['CPP']
+        else:
+            cpp = cc + " -E"
+        if 'LDFLAGS' in os.environ:
+            ldshared = ldshared + ' ' + os.environ['LDFLAGS']
+        if 'CFLAGS' in os.environ:
+            cflags = os.environ['CFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CFLAGS']
+        else:
+            cflags = ''
+        if 'CPPFLAGS' in os.environ:
+            cpp = cpp + ' ' + os.environ['CPPFLAGS']
+            cflags = cflags + ' ' + os.environ['CPPFLAGS']
+            ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
+        if 'AR' in os.environ:
+            ar = os.environ['AR']
+        if 'ARFLAGS' in os.environ:
+            archiver = ar + ' ' + os.environ['ARFLAGS']
+        else:
+            archiver = ar + ' ' + ar_flags
+
+        cc_cmd = cc + ' ' + cflags
+        compiler.set_executables(
+            preprocessor=cpp,
+            compiler=cc_cmd,
+            compiler_so=cc_cmd,
+            compiler_cxx=cxx,
+            linker_so=ldshared,
+            linker_exe=cc,
+            archiver=archiver)
+
+        compiler.shared_lib_extension = shlib_suffix
+
+
+# Flags that retain macros in preprocessed output.
+FLAGS_RETAINING_MACROS = ['-g3', '-ggdb3', '-gstabs3', '-gcoff3', '-gxcoff3', '-gvms3']
 
 
 class CCompiler(object):
@@ -98,9 +163,11 @@ class CCompiler(object):
                 elif os.environ.get('VCInstallDir'):
                     os.environ['MSSdk'] = os.environ.get('VCInstallDir')
 
-            self.compiler_cmd = 'cl.exe'
-
-            self._cflags_no_deprecation_warnings = "-wd4996"
+            if self.compiler.check_is_clang_cl():
+                self.compiler_cmd = os.environ.get('CC').split()[0]
+            else:
+                self.compiler_cmd = 'cl.exe'
+                self._cflags_no_deprecation_warnings = "-wd4996"
         else:
             if (isinstance(self.compiler, Mingw32CCompiler)):
                 self.compiler_cmd = self.compiler.compiler[0]
@@ -109,7 +176,7 @@ class CCompiler(object):
 
             self._cflags_no_deprecation_warnings = "-Wno-deprecated-declarations"
 
-    def get_internal_link_flags(self, args, libtool, libraries, extra_libraries, libpaths):
+    def get_internal_link_flags(self, args, libtool, libraries, extra_libraries, libpaths, lib_dirs_envvar):
         # An "internal" link is where the library to be introspected
         # is being built in the current directory.
 
@@ -119,7 +186,7 @@ class CCompiler(object):
         if os.name == 'nt':
             runtime_path_envvar = ['LIB', 'PATH']
         else:
-            runtime_path_envvar = ['LD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH']
+            runtime_path_envvar = ['LD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH'] if not lib_dirs_envvar else [lib_dirs_envvar]
             # Search the current directory first
             # (This flag is not supported nor needed for Visual C++)
             args.append('-L.')
@@ -198,7 +265,7 @@ class CCompiler(object):
         # Define these macros when using Visual C++ to silence many warnings,
         # and prevent stepping on many Visual Studio-specific items, so that
         # we don't have to handle them specifically in scannerlexer.l
-        if self.check_is_msvc():
+        if self.check_is_msvc() and not self.compiler.check_is_clang_cl():
             macros.append(('_USE_DECLSPECS_FOR_SAL', None))
             macros.append(('_CRT_SECURE_NO_WARNINGS', None))
             macros.append(('_CRT_NONSTDC_NO_WARNINGS', None))
@@ -253,7 +320,7 @@ class CCompiler(object):
         args = []
         libsearch = []
 
-        # When we are using Visual C++...
+        # When we are using Visual C++ or clang-cl...
         if self.check_is_msvc():
             # The search path of the .lib's on Visual C++
             # is dependent on the LIB environmental variable,
@@ -271,11 +338,7 @@ class CCompiler(object):
             args.append('dumpbin.exe')
             args.append('-symbols')
 
-            # Work around the attempt to resolve m.lib on Python 2.x
-            if sys.version_info.major < 3:
-                libraries[:] = [lib for lib in libraries if lib != 'm']
-
-        # When we are not using Visual C++ (i.e. we are using GCC)...
+        # When we are not using Visual C++ nor clang-cl (i.e. we are using GCC)...
         else:
             libtool = utils.get_libtool_command(options)
             if libtool:
@@ -352,6 +415,15 @@ class CCompiler(object):
                 ", ".join(not_resolved))
         return shlibs
 
+    @property
+    def linker_cmd(self):
+        if self.check_is_msvc():
+            if not self.compiler.initialized:
+                self.compiler.initialize()
+            return [self.compiler.linker]
+        else:
+            return self.compiler.linker_exe
+
     def check_is_msvc(self):
         return isinstance(self.compiler, MSVCCompiler)
 
@@ -374,12 +446,19 @@ class CCompiler(object):
                 else:
                     macro_name = macro[:macro_index]
                     macro_value = macro[macro_index + 1:]
+
+                    # Somehow the quotes used in defining
+                    # macros for compiling using distutils
+                    # get dropped for MSVC builds, so
+                    # escape the escape character.
+                    if isinstance(self.compiler, MSVCCompiler):
+                        macro_value = macro_value.replace('\"', '\\\"')
                 macros.append((macro_name, macro_value))
             elif option.startswith('-U'):
                 macros.append((option[len('-U'):],))
             else:
                 # We expect the preprocessor to remove macros. If debugging is turned
                 # up high enough that won't happen, so don't add those flags. Bug #720504
-                if option not in ['-g3', '-ggdb3', '-gstabs3', '-gcoff3', '-gxcoff3', '-gvms3']:
+                if option not in FLAGS_RETAINING_MACROS:
                     other_options.append(option)
         return (includes, macros, other_options)

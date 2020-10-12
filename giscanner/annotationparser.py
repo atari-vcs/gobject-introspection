@@ -106,12 +106,6 @@ Refer to the `GTK-Doc manual`_ for more detailed usage information.
         http://developer.gnome.org/gtk-doc-manual/1.18/documenting.html.en
 '''
 
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import re
 import operator
@@ -446,6 +440,48 @@ SIGNAL_RE = re.compile(
     ''',
     re.UNICODE | re.VERBOSE)
 
+# Pattern matching action identifiers.
+ACTION_RE = re.compile(
+    r'''
+    ^                                                    # start
+    \s*                                                  # 0 or more whitespace characters
+    (?P<class_name>[\w]+)                                # class name
+    \s*                                                  # 0 or more whitespace characters
+    \|{1}                                                # 1 required vertical bar
+    \s*                                                  # 0 or more whitespace characters
+    (?P<action_name>[\w-]+\.[\w-]+)                      # action name
+    \s*                                                  # 0 or more whitespace characters
+    (?P<delimiter>:?)                                    # delimiter
+    \s*                                                  # 0 or more whitespace characters
+    (?P<fields>.*?)                                      # annotations + description
+    \s*                                                  # 0 or more whitespace characters
+    :?                                                   # invalid delimiter
+    \s*                                                  # 0 or more whitespace characters
+    $                                                    # end
+    ''',
+    re.UNICODE | re.VERBOSE)
+
+# Pattern matching struct fields.
+FIELD_RE = re.compile(
+    r'''
+    ^                                                    # start
+    \s*                                                  # 0 or more whitespace characters
+    (?P<class_name>[\w]+)                                # class name
+    \s*                                                  # 0 or more whitespace characters
+    \.{1}                                                # 1 required dot
+    \s*                                                  # 0 or more whitespace characters
+    (?P<field_name>[\w-]*\w)                             # field name
+    \s*                                                  # 0 or more whitespace characters
+    (?P<delimiter>:?)                                    # delimiter
+    \s*                                                  # 0 or more whitespace characters
+    (?P<fields>.*?)                                      # annotations + description
+    \s*                                                  # 0 or more whitespace characters
+    :?                                                   # invalid delimiter
+    \s*                                                  # 0 or more whitespace characters
+    $                                                    # end
+    ''',
+    re.UNICODE | re.VERBOSE)
+
 # Pattern matching parameters.
 PARAMETER_RE = re.compile(
     r'''
@@ -551,7 +587,7 @@ class GtkDocAnnotatable(object):
         self.annotations = GtkDocAnnotations()
 
     def __repr__(self):
-        return "<GtkDocAnnotatable '%s' %r>" % (self.annotations, )
+        return "<GtkDocAnnotatable '%s'>" % (self.annotations, )
 
     def validate(self):
         '''
@@ -1344,13 +1380,31 @@ class GtkDocCommentBlockParser(object):
                             identifier_fields = result.group('fields')
                             identifier_fields_start = result.start('fields')
                         else:
-                            result = SYMBOL_RE.match(line)
+                            result = ACTION_RE.match(line)
 
                             if result:
-                                identifier_name = '%s' % (result.group('symbol_name'), )
-                                identifier_delimiter = result.group('delimiter')
-                                identifier_fields = result.group('fields')
-                                identifier_fields_start = result.start('fields')
+                                identifier_name = 'ACTION:%s:%s' % (result.group('class_name'),
+                                                                        result.group('action_name'))
+                                identifier_delimiter = None
+                                identifier_fields = None
+                                identifier_fields_start = None
+                            else:
+                                result = FIELD_RE.match(line)
+
+                                if result:
+                                    identifier_name = '%s.%s' % (result.group('class_name'),
+                                                                  result.group('field_name'))
+                                    identifier_delimiter = result.group('delimiter')
+                                    identifier_fields = result.group('fields')
+                                    identifier_fields_start = result.start('fields')
+                                else:
+                                    result = SYMBOL_RE.match(line)
+
+                                    if result:
+                                        identifier_name = '%s' % (result.group('symbol_name'), )
+                                        identifier_delimiter = result.group('delimiter')
+                                        identifier_fields = result.group('fields')
+                                        identifier_fields_start = result.start('fields')
 
                 if result:
                     in_part = PART_IDENTIFIER
@@ -2123,7 +2177,7 @@ class GtkDocCommentBlockWriter(object):
             lines = []
 
             # Identifier part
-            if block.name.startswith('SECTION'):
+            if block.name.startswith('SECTION') or block.name.startswith('ACTION'):
                 lines.append(block.name)
             else:
                 if block.annotations:

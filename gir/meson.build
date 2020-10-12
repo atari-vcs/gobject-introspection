@@ -1,8 +1,12 @@
 cairo_conf = configuration_data()
-if get_option('cairo-libname') != ''
-  cairo_library_name = get_option('cairo-libname')
-elif host_machine.system() == 'win32'
-  cairo_library_name = 'libcairo-gobject-2.dll'
+if get_option('cairo_libname') != ''
+  cairo_library_name = get_option('cairo_libname')
+elif host_machine.system() == 'windows'
+  if cc.get_id() == 'msvc'
+    cairo_library_name = 'cairo-gobject.dll'
+  else
+    cairo_library_name = 'libcairo-gobject-2.dll'
+  endif
 elif host_machine.system() == 'darwin'
   cairo_library_name = 'libcairo-gobject.2.dylib'
 else
@@ -26,6 +30,7 @@ gir_files = [
   'freetype2-2.0.gir',
   'GL-1.0.gir',
   'libxml2-2.0.gir',
+  'Vulkan-1.0.gir',
   'xft-2.0.gir',
   'xlib-2.0.gir',
   'xfixes-4.0.gir',
@@ -34,14 +39,13 @@ gir_files = [
 ]
 
 typelibdir = join_paths(get_option('libdir'), 'girepository-1.0')
-girdir = join_paths(get_option('datadir'), 'gir-1.0')
 install_data(gir_files, install_dir: girdir)
 
 scanner_command = [
-  python,
-  girscanner,
+  find_program('g-ir-scanner', native: true),
   '--output=@OUTPUT@',
   '--no-libtool',
+  '--quiet',
   '--reparse-validate',
   '--add-include-path', join_paths(meson.current_build_dir()),
   '--add-include-path', join_paths(meson.current_source_dir()),
@@ -58,6 +62,12 @@ if dep_type == 'internal'
                       '--extra-library=glib-2.0', '--extra-library=gobject-2.0']
 endif
 
+if get_option('gi_cross_binary_wrapper') != ''
+  scanner_command += ['--use-binary-wrapper=' + get_option('gi_cross_binary_wrapper')]
+endif
+if get_option('gi_cross_ldd_wrapper') != ''
+  scanner_command += ['--use-ldd-wrapper=' + get_option('gi_cross_ldd_wrapper')]
+endif
 # Take a glob and print to newlines
 globber = '''
 from glob import glob
@@ -84,8 +94,8 @@ glib_command = scanner_command + [
 
 if dep_type == 'pkgconfig'
   glib_command += ['--external-library', '--pkg=glib-2.0']
-  glib_libdir = glib_dep.get_pkgconfig_variable('libdir')
-  glib_incdir = join_paths(glib_dep.get_pkgconfig_variable('includedir'), 'glib-2.0')
+  glib_libdir = get_option('gi_cross_pkgconfig_sysroot_path') + glib_dep.get_pkgconfig_variable('libdir')
+  glib_incdir = get_option('gi_cross_pkgconfig_sysroot_path') + join_paths(glib_dep.get_pkgconfig_variable('includedir'), 'glib-2.0')
   glib_libincdir = join_paths(glib_libdir, 'glib-2.0', 'include')
   glib_files += join_paths(glib_incdir, 'gobject', 'glib-types.h')
   glib_files += join_paths(glib_libincdir, 'glibconfig.h')
@@ -99,7 +109,7 @@ if dep_type == 'pkgconfig'
   endif
   glib_headers = ret.stdout().strip().split('\n')
   # Get a list of all source files
-  glib_srcdir = get_option('glib-src-dir')
+  glib_srcdir = get_option('glib_src_dir')
   if glib_srcdir != ''
     ret = run_command(python, '-c', globber.format(join_paths(glib_srcdir, 'glib', '*.c')))
     if ret.returncode() != 0
@@ -176,7 +186,7 @@ glib_gir = custom_target('gir-glib',
   install: true,
   install_dir: girdir,
   command: glib_command + [
-    '--cflags-begin'] + glib_includes + [
+    '--cflags-begin'] + glib_includes + extra_giscanner_cflags + [
     '-DGLIB_COMPILATION',
     '-D__G_I18N_LIB_H__',
     '-DGETTEXT_PACKAGE=Dummy',
@@ -221,7 +231,7 @@ endif
 
 foreach h : gobject_headers
   hstr = '@0@'.format(h)
-  if not hstr.endswith('autocleanups.h') and not hstr.endswith('glib-types.h')
+  if not hstr.endswith('autocleanups.h') and not hstr.endswith('glib-types.h') and not hstr.endswith('gvaluecollector.h') and not hstr.endswith('glib-enumtypes.h')
     gobject_files += h
   endif
 endforeach
@@ -240,7 +250,7 @@ gobject_gir = custom_target('gir-gobject',
   install_dir: girdir,
   command: gobject_command + [
     '--include-uninstalled=' + glib_gir.full_path(),
-    '--cflags-begin'] + glib_includes + [
+    '--cflags-begin'] + glib_includes + extra_giscanner_cflags + [
     '-DGOBJECT_COMPILATION',
     '--cflags-end',
     '@INPUT@',
@@ -287,7 +297,7 @@ gir_files += custom_target('gir-gmodule',
   install_dir: girdir,
   command: gmodule_command + [
     '--include-uninstalled=' + glib_gir.full_path(),
-    '--cflags-begin'] + glib_includes + [
+    '--cflags-begin'] + glib_includes + extra_giscanner_cflags + [
     '--cflags-end',
     '@INPUT@',
   ]
@@ -337,9 +347,10 @@ foreach h : gio_headers
 endforeach
 
 if giounix_dep.found()
+  dep_type = giounix_dep.type_name()
   if dep_type == 'pkgconfig'
     gio_command += ['--pkg=gio-unix-2.0']
-    giounix_includedir = join_paths(giounix_dep.get_pkgconfig_variable('includedir'), 'gio-unix-2.0')
+    giounix_includedir = get_option('gi_cross_pkgconfig_sysroot_path') + join_paths(giounix_dep.get_pkgconfig_variable('includedir'), 'gio-unix-2.0')
     # Get the installed gio-unix header list
     ret = run_command(python, '-c', globber.format(join_paths(giounix_includedir, 'gio', '*.h')))
     if ret.returncode() != 0
@@ -366,7 +377,7 @@ endif
 # out of date.
 gio_files += files('gio-2.0.c')
 
-gir_files += custom_target('gir-gio',
+gio_gir = custom_target('gir-gio',
   input: gio_files,
   output: 'Gio-2.0.gir',
   depends: [gobject_gir, giscanner_pymod],
@@ -375,7 +386,7 @@ gir_files += custom_target('gir-gio',
   install_dir: girdir,
   command: gio_command + [
     '--include-uninstalled=' + gobject_gir.full_path(),
-    '--cflags-begin'] + glib_includes + [
+    '--cflags-begin'] + glib_includes + extra_giscanner_cflags + [
     '-DGIO_COMPILATION',
     '-DG_SETTINGS_ENABLE_BACKEND',
     '--cflags-end',
@@ -383,11 +394,14 @@ gir_files += custom_target('gir-gio',
   ]
 )
 
+gir_files += gio_gir
+
 # GIRepository
 
 girepository_command = scanner_command + [
   '--identifier-prefix=GI',
   '--symbol-prefix=g',
+  '--symbol-prefix=gi',
   '--c-include=girepository.h',
   '--namespace=GIRepository',
   '--nsversion=2.0',
@@ -409,23 +423,33 @@ gir_files += custom_target('gir-girepository',
   install_dir: girdir,
   command: girepository_command + [
     '--include-uninstalled=' + gobject_gir.full_path(),
-    '--cflags-begin'] + glib_includes + [
+    '--cflags-begin'] + glib_includes + extra_giscanner_cflags + [
     '-I' + meson.current_source_dir() + '/../girepository',
+    '-I' + meson.current_build_dir() + '/../girepository',
     '-DGI_COMPILATION',
     '--cflags-end',
     '@INPUT@',
   ]
 )
 
-foreach gir : gir_files
-  custom_target('generate-typelib-@0@'.format(gir).underscorify(),
-    input: gir,
-    output: '@BASENAME@.typelib',
-    depends: [gobject_gir, ],
-    command: [gircompiler, '-o', '@OUTPUT@', '@INPUT@',
+typelibs = []
+if get_option('gi_cross_binary_wrapper') != ''
+    gircompiler_command = [get_option('gi_cross_binary_wrapper'), gircompiler.full_path(), ]
+else
+    gircompiler_command = [gircompiler, ]
+endif
+
+gircompiler_command += [ '-o', '@OUTPUT@', '@INPUT@',
               '--includedir', meson.current_build_dir(),
               '--includedir', meson.current_source_dir(),
-    ],
+]
+
+foreach gir : gir_files
+  typelibs += custom_target('generate-typelib-@0@'.format(gir).underscorify(),
+    input: gir,
+    output: '@BASENAME@.typelib',
+    depends: [gobject_gir, gircompiler, ],
+    command: gircompiler_command,
     install: true,
     install_dir: typelibdir,
   )

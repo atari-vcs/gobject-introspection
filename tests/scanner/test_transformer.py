@@ -1,8 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import unittest
 import tempfile
 import os
@@ -15,17 +10,20 @@ os.environ['GI_SCANNER_DISABLE_CACHE'] = '1'
 from giscanner import ast
 from giscanner.sourcescanner import SourceScanner
 from giscanner.transformer import Transformer
-from giscanner.message import MessageLogger, WARNING, ERROR, FATAL
+from giscanner.message import MessageLogger
 
 
 def create_scanner_from_source_string(source):
     ss = SourceScanner()
     tmp_fd, tmp_name = tempfile.mkstemp(suffix='.h', text=True)
-    file = os.fdopen(tmp_fd, 'wt')
-    file.write(source)
-    file.close()
 
-    ss.parse_files([tmp_name])
+    try:
+        with os.fdopen(tmp_fd, 'wt') as file:
+            file.write(source)
+        ss.parse_files([tmp_name])
+    finally:
+        os.unlink(tmp_name)
+
     return ss
 
 
@@ -87,7 +85,7 @@ class TestStructTypedefs(unittest.TestCase):
         # Hack to set logging singleton
         self.namespace = ast.Namespace('Test', '1.0')
         logger = MessageLogger.get(namespace=self.namespace)
-        logger.enable_warnings((WARNING, ERROR, FATAL))
+        logger.enable_warnings(True)
 
     def test_anonymous_typedef(self):
         load_namespace_from_source_string(self.namespace, """
@@ -282,7 +280,7 @@ class TestNestedStructs(unittest.TestCase):
         # Hack to set logging singleton
         self.namespace = ast.Namespace('Test', '1.0')
         logger = MessageLogger.get(namespace=self.namespace)
-        logger.enable_warnings((WARNING, ERROR, FATAL))
+        logger.enable_warnings(True)
 
     def test_nested_named(self):
         load_namespace_from_source_string(self.namespace, """
@@ -389,7 +387,7 @@ class TestUnions(unittest.TestCase):
         # Hack to set logging singleton
         self.namespace = ast.Namespace('Test', '1.0')
         logger = MessageLogger.get(namespace=self.namespace)
-        logger.enable_warnings((WARNING, ERROR, FATAL))
+        logger.enable_warnings(True)
 
     def test_union_with_struct(self):
         load_namespace_from_source_string(self.namespace, """
@@ -474,7 +472,7 @@ class TestCallbacks(unittest.TestCase):
         # Hack to set logging singleton
         self.namespace = ast.Namespace('Test', '1.0')
         logger = MessageLogger.get(namespace=self.namespace)
-        logger.enable_warnings((WARNING, ERROR, FATAL))
+        logger.enable_warnings(True)
 
     def test_union_with_struct(self):
         load_namespace_from_source_string(self.namespace, """
@@ -483,6 +481,48 @@ class TestCallbacks(unittest.TestCase):
         self.assertEqual(len(self.namespace.names), 1)
         node = self.namespace.get('Callback')
         self.assertTrue(isinstance(node, ast.Callback))
+
+
+class TestArrays(unittest.TestCase):
+    def setUp(self):
+        # Hack to set logging singleton
+        self.namespace = ast.Namespace('Test', '1.0')
+        logger = MessageLogger.get(namespace=self.namespace)
+        logger.enable_warnings(True)
+
+    def test_multidimensional_arrays(self):
+        """Multidimensional arrays are flattend into a single dimension."""
+
+        load_namespace_from_source_string(self.namespace, """
+            typedef struct {
+              int data[2][3][5][7][11];
+            } TestMultiDimArray;
+            """)
+
+        node = self.namespace.get('MultiDimArray')
+        self.assertIsNotNone(node)
+
+        field = node.fields[0]
+        self.assertIsInstance(field, ast.Field)
+        self.assertIsInstance(field.type, ast.Array)
+        self.assertEqual(field.type.element_type, ast.TYPE_INT)
+        self.assertEqual(field.type.size, 2 * 3 * 5 * 7 * 11)
+
+    def test_flexible_array_member(self):
+        """Flexible array members don't break transformer.
+
+        They are generally unsupported, so nothing else is validated.
+        """
+
+        load_namespace_from_source_string(self.namespace, """
+            typedef struct {
+              int length;
+              unsigned char data[];
+            } TestFlexibleArray;
+            """)
+
+        node = self.namespace.get('FlexibleArray')
+        self.assertIsNotNone(node)
 
 
 if __name__ == '__main__':

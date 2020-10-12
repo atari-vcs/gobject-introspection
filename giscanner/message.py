@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- Mode: Python -*-
 # GObject-Introspection - a framework for introspecting GObject libraries
 # Copyright (C) 2010 Red Hat, Inc.
@@ -20,11 +19,6 @@
 # 02110-1301, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 import operator
@@ -42,12 +36,13 @@ class Position(object):
     want to inform about.
     """
 
-    __slots__ = ('filename', 'line', 'column')
+    __slots__ = ('filename', 'line', 'column', 'is_typedef')
 
-    def __init__(self, filename=None, line=None, column=None):
+    def __init__(self, filename=None, line=None, column=None, is_typedef=False):
         self.filename = filename
         self.line = line
         self.column = column
+        self.is_typedef = is_typedef
 
     def _compare(self, other, op):
         return op((self.filename, self.line, self.column),
@@ -80,11 +75,14 @@ class Position(object):
                                         self.column or -1)
 
     def format(self, cwd):
-        filename = os.path.realpath(self.filename)
-        cwd = os.path.realpath(cwd)
-        common_prefix = os.path.commonprefix((filename, cwd))
-        if common_prefix:
-            filename = os.path.relpath(filename, common_prefix)
+        # Windows: We may be using different drives self.filename and cwd,
+        #          which leads to a ValuError when using os.path.relpath().
+        #          In that case, just use the entire path of self.filename
+        try:
+            filename = os.path.relpath(os.path.realpath(self.filename),
+                                       os.path.realpath(cwd))
+        except ValueError:
+            filename = os.path.realpath(self.filename)
 
         if self.column is not None:
             return '%s:%d:%d' % (filename, self.line, self.column)
@@ -103,9 +101,8 @@ class MessageLogger(object):
         self._cwd = os.getcwd()
         self._output = output
         self._namespace = namespace
-        self._enable_warnings = []
+        self._enable_warnings = False
         self._warning_count = 0
-        self._error_count = 0
 
     @classmethod
     def get(cls, *args, **kwargs):
@@ -113,14 +110,11 @@ class MessageLogger(object):
             cls._instance = cls(*args, **kwargs)
         return cls._instance
 
-    def enable_warnings(self, log_types):
-        self._enable_warnings = log_types
+    def enable_warnings(self, value):
+        self._enable_warnings = bool(value)
 
     def get_warning_count(self):
         return self._warning_count
-
-    def get_error_count(self):
-        return self._error_count
 
     def log(self, log_type, text, positions=None, prefix=None, marker_pos=None, marker_line=None):
         """
@@ -131,7 +125,7 @@ class MessageLogger(object):
 
         self._warning_count += 1
 
-        if log_type not in self._enable_warnings:
+        if not self._enable_warnings and log_type in (WARNING, ERROR):
             return
 
         if type(positions) == set:
@@ -150,7 +144,6 @@ class MessageLogger(object):
             error_type = "Warning"
         elif log_type == ERROR:
             error_type = "Error"
-            self._error_count += 1
         elif log_type == FATAL:
             error_type = "Fatal"
 

@@ -8,18 +8,15 @@ MANPAGES := debian/dh_girepository.1
 $(MANPAGES): debian/dh_girepository
 	pod2man -c "gobject-introspection" -r "$(DEB_VERSION)" $< $@
 
-# We can drop this once we switch to building with meson
-# since debhelper uses this locale by default for meson now
-export LC_ALL=C.UTF-8
-
 %:
-	dh $@ --with gnome,python3
+	dh $@ --buildsystem=meson
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
-		--enable-gtk-doc \
-		--enable-doctool \
-		--with-python=python3
+		-Dgtk_doc=true \
+		-Dcairo=enabled \
+		-Ddoctool=enabled \
+		-Dpython=python3
 
 override_dh_auto_build: $(MANPAGES)
 	dh_auto_build
@@ -32,12 +29,10 @@ override_dh_shlibdeps:
 override_dh_makeshlibs:
 	dh_makeshlibs -- -c4
 
-override_dh_install:
-	find debian/tmp -name '*.la' -print -delete
-	find debian/tmp -name '*.pyc' -print -delete
-	find debian/tmp -name '*.pyo' -print -delete
-	dh_install
-
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -rf $(MANPAGES)
+
+override_dh_python3:
+	dh_python3 -pgobject-introspection /usr/lib/$(DEB_HOST_MULTIARCH)/gobject-introspection/giscanner/
+	dh_python3

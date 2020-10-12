@@ -165,7 +165,8 @@ pop_conditional (GISourceScanner *scanner)
   if (type == 0)
     {
       gchar *filename = g_file_get_path (scanner->current_file);
-      fprintf (stderr, "%s:%d: mismatched %s", filename, lineno, yytext);
+      gchar *error = g_strdup_printf ("%s:%d: mismatched %s", filename, lineno, yytext);
+      g_ptr_array_add (scanner->errors, error);
       g_free (filename);
     }
 
@@ -180,8 +181,9 @@ warn_if_cond_has_gi_scanner (GISourceScanner *scanner,
   if (strstr (text, "__GI_SCANNER__"))
     {
       gchar *filename = g_file_get_path (scanner->current_file);
-      fprintf (stderr, "%s:%d: the __GI_SCANNER__ constant should only be used with simple #ifdef or #endif: %s",
+      gchar *error = g_strdup_printf ("%s:%d: the __GI_SCANNER__ constant should only be used with simple #ifdef or #endif: %s",
                filename, lineno, text);
+      g_ptr_array_add (scanner->errors, error);
       g_free (filename);
     }
 }
@@ -209,7 +211,21 @@ static void
 set_or_merge_base_type (GISourceType *type,
                         GISourceType *base)
 {
-  if (base->type == CTYPE_INVALID)
+  /* combine basic types like unsigned int and long long */
+  if (base->type == CTYPE_BASIC_TYPE && type->type == CTYPE_BASIC_TYPE)
+    {
+      char *name = g_strdup_printf ("%s %s", type->name, base->name);
+      g_free (type->name);
+      type->name = name;
+
+      type->storage_class_specifier |= base->storage_class_specifier;
+      type->type_qualifier |= base->type_qualifier;
+      type->function_specifier |= base->function_specifier;
+      type->is_bitfield |= base->is_bitfield;
+
+      ctype_free (base);
+    }
+  else if (base->type == CTYPE_INVALID)
     {
       g_assert (base->base_type == NULL);
 
@@ -230,7 +246,7 @@ set_or_merge_base_type (GISourceType *type,
 
 %}
 
-%error-verbose
+%define parse.error verbose
 %union {
   char *str;
   GList *list;
@@ -789,6 +805,9 @@ declaration
 	  }
 	;
 
+empty_declaration
+	: ';'
+
 declaration_specifiers
 	: storage_class_specifier declaration_specifiers
 	  {
@@ -803,15 +822,7 @@ declaration_specifiers
 	| type_specifier declaration_specifiers
 	  {
 		$$ = $1;
-		/* combine basic types like unsigned int and long long */
-		if ($$->type == CTYPE_BASIC_TYPE && $2->type == CTYPE_BASIC_TYPE) {
-			char *name = g_strdup_printf ("%s %s", $$->name, $2->name);
-			g_free ($$->name);
-			$$->name = name;
-			ctype_free ($2);
-		} else {
-			set_or_merge_base_type ($1, $2);
-		}
+		set_or_merge_base_type ($1, $2);
 	  }
 	| type_specifier
 	| type_qualifier declaration_specifiers
@@ -1080,6 +1091,12 @@ enum_keyword
           }
         ;
 
+static_keyword
+        : STATIC
+          {
+          }
+        ;
+
 enumerator_list
 	:
 	  {
@@ -1163,6 +1180,11 @@ direct_declarator
 	  {
 		$$ = $2;
 	  }
+        | direct_declarator '[' static_keyword assignment_expression ']'
+          {
+                $$ = $1;
+                gi_source_symbol_merge_type ($$, gi_source_array_new ($4));
+          }
 	| direct_declarator '[' assignment_expression ']'
 	  {
 		$$ = $1;
@@ -1457,6 +1479,7 @@ translation_unit
 external_declaration
 	: function_definition
 	| declaration
+	| empty_declaration
 	| macro
 	;
 
@@ -1488,6 +1511,15 @@ object_macro
 
 function_macro_define
 	: function_macro '(' identifier_list ')'
+	   {
+		GISourceSymbol *sym = gi_source_symbol_new (CSYMBOL_TYPE_FUNCTION_MACRO, scanner->current_file, lineno);
+		GISourceType *func = gi_source_function_new ();
+		sym->ident = g_strdup ($1);
+		func->child_list = $3;
+		gi_source_symbol_merge_type (sym, func);
+		gi_source_scanner_add_symbol (scanner, sym);
+		gi_source_symbol_unref (sym);
+	   }
 	;
 
 object_macro_define
@@ -1567,8 +1599,9 @@ yyerror (GISourceScanner *scanner, const char *s)
    * have valid expressions */
   if (!scanner->macro_scan)
     {
-      fprintf(stderr, "%s:%d: %s in '%s' at '%s'\n",
-	      g_file_get_parse_name (scanner->current_file), lineno, s, linebuf, yytext);
+      gchar *error = g_strdup_printf ("%s:%d: %s in '%s' at '%s'",
+          g_file_get_parse_name (scanner->current_file), lineno, s, linebuf, yytext);
+      g_ptr_array_add (scanner->errors, error);
     }
 }
 
@@ -1624,6 +1657,19 @@ read_identifier (FILE * f, int c, char **identifier)
     }
   *identifier = g_string_free (id, FALSE);
   return c;
+}
+
+static gboolean
+parse_file (GISourceScanner *scanner, FILE *file)
+{
+  g_return_val_if_fail (file != NULL, FALSE);
+
+  lineno = 1;
+  yyin = file;
+  yyparse (scanner);
+  yyin = NULL;
+
+  return TRUE;
 }
 
 void
@@ -1772,29 +1818,29 @@ gi_source_scanner_parse_macros (GISourceScanner *scanner, GList *filenames)
     }
 
   rewind (fmacros);
-  gi_source_scanner_parse_file (scanner, fmacros);
+  parse_file (scanner, fmacros);
   fclose (fmacros);
   g_unlink (tmp_name);
 }
 
 gboolean
-gi_source_scanner_parse_file (GISourceScanner *scanner, FILE *file)
+gi_source_scanner_parse_file (GISourceScanner *scanner, const gchar *filename)
 {
-  g_return_val_if_fail (file != NULL, FALSE);
+  FILE *file;
+  gboolean result;
 
-  lineno = 1;
-  yyin = file;
-  yyparse (scanner);
-  yyin = NULL;
+  file = g_fopen (filename, "r");
+  result = parse_file (scanner, file);
+  fclose (file);
 
-  return TRUE;
+  return result;
 }
 
 gboolean
 gi_source_scanner_lex_filename (GISourceScanner *scanner, const gchar *filename)
 {
   lineno = 1;
-  yyin = fopen (filename, "r");
+  yyin = g_fopen (filename, "r");
 
   while (yylex (scanner) != YYEOF)
     ;

@@ -42,7 +42,7 @@
  * <refsect1 id="gi-giobjectinfo.struct-hierarchy" role="struct_hierarchy">
  * <title role="struct_hierarchy.title">Struct hierarchy</title>
  * <synopsis>
- *   <link linkend="gi-GIBaseInfo">GIBaseInfo</link>
+ *   <link linkend="GIBaseInfo">GIBaseInfo</link>
  *    +----<link linkend="gi-GIRegisteredTypeInfo">GIRegisteredTypeInfo</link>
  *          +----GIStructInfo
  * </synopsis>
@@ -123,6 +123,7 @@ g_struct_info_get_field (GIStructInfo *info,
  *
  * Obtain the type information for field named @name.
  *
+ * Since: 1.46
  * Returns: (transfer full): the #GIFieldInfo or %NULL if not found,
  * free it with g_base_info_unref() when done.
  */
@@ -214,12 +215,9 @@ g_struct_info_find_method (GIStructInfo *info,
 {
   gint offset;
   GIRealInfo *rinfo = (GIRealInfo *)info;
-  Header *header = (Header *)rinfo->typelib->data;
   StructBlob *blob = (StructBlob *)&rinfo->typelib->data[rinfo->offset];
 
-  offset = rinfo->offset + header->struct_blob_size
-    + blob->n_fields * header->field_blob_size;
-
+  offset = g_struct_get_field_offset (info, blob->n_fields);
   return _g_base_info_find_method ((GIBaseInfo*)info, offset, blob->n_methods, name);
 }
 

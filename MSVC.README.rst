@@ -54,7 +54,7 @@ builds is not (and will likely never be) supported.
 Open a Visual Studio command prompt and create an empty build directory (which needs
 to be on the same drive as the G-I sources).  In that directory, run the following::
 
-  python $(PythonInstallationPath)\scripts\meson.py $(G-I_srcdir) --buildtype=<build_configuration> --prefix=$(PREFIX) -Dcairo-libname=<DLL filename of cairo-gobject> -Dpython=<full path to Python interpreter to build _giscanner.pyd>
+  python $(PythonInstallationPath)\scripts\meson.py $(G-I_srcdir) --buildtype=<build_configuration> --prefix=$(PREFIX) -Dcairo_libname=<DLL filename of cairo-gobject> -Dpython=<full path to Python interpreter to build _giscanner.pyd>
 
 The -Dcairo-libname is likely necessary as the default DLL file name for Cairo-GObject
 may likely not match the default "libcairo-gobject-2.dll", which is the default
@@ -67,6 +67,22 @@ Note that for this setting, Python-2.7.x or Python-3.4.x or later is supported.
 
 When Meson completes configuring and generating the build files, proceed building
 using Ninja or the generated Visual Studio projects.
+
+Additional notes for building and running against Python 3.8.x and later
+------------------------------------------------------------------------
+Python 3.8.x and later made restrictions on where DLLs are searched for third-party
+modules, which will therefore affect how the Python tools in tools/ look for dependent
+DLLs, as they rely on a C Python module, _giscanner.pyd, as the paths in %PATH% are
+no longer referred to, except for system-supplied DLLs in their designated locations
+on the system.  In order to cope with this, DLLs are being searched for in the
+locations indicated by the 'bindir' entry in the pkg-config files that are being
+required for the individual packages, followed by locations (note the plural form-multiple
+paths are supported by GI_EXTRA_BASE_DLL_DIRS, separated by Python's os.pathsep, which is
+';' on Windows cmd.exe) that are indicated through the envvar GI_EXTRA_BASE_DLL_DIRS.
+This means, if there are any DLLs required (including their dependent non-system DLLs) for
+the .gir files being generated or queried, they must be in the locations indicated by the
+'bindir' entries in the dependent packages' .pc files of the current package, and/or in
+the locations indicated by GI_EXTRA_BASE_DLL_DIRS.
 
 Additional notes for building with Visual Studio 2008 only
 ----------------------------------------------------------
@@ -83,12 +99,22 @@ On x64 builds, building girepository\girepository-1.0-1.dll may hang during comp
 If this happens, terminate all 'cl.exe' processes, which will terminate the build process.
 Open build.ninja and change the compiler flags by changing /O2 to /O1 for all the sources
 that hang during compilation.  At this time of writing, girepository\girwriter.c,
-girepository\girparser.c and girepository\girnode.c are affected--this is due to an issue
-in Visual Studio 2008's x64 compiler in regards to optimization.  Re-attempt the build, and
-the build should complete normally.  This does not affect Win32/x86 builds.
+girepository\girparser.c, girepository\girnode.c and tests\repository\gitypelibtest.c are
+affected--this is due to an issue in Visual Studio 2008's x64 compiler in regards to
+optimization.  Re-attempt the build, and the build should complete normally.  This does not
+affect Win32/x86 builds.
 
 On all Visual Studio 2008 builds, after successfully completing/installing the build, run
 the following so that we ensure the manifests are embedded to the built DLLs and EXEs::
 
   for /r %f in (*.dll.manifest) do if exist $(PREFIX)\bin\%~nf mt /manifest %f /outputresource:$(PREFIX)\bin\%~nf;2
   for /r %f in (*.exe.manifest) do if exist $(PREFIX)\bin\%~nf mt /manifest %f /outputresource:$(PREFIX)\bin\%~nf;1
+
+Additional notes on using clang-cl (LLVM/CLang's Visual Studio compiler emulation)
+----------------------------------------------------------------------------------
+Support has been added to build GObject-Introspection with clang-cl, specifically for
+running g-ir-scanner with clang-cl and lld-link as the compiler and linker.  To enable
+such support, you need to set *both* the environment variables CC and CXX to clang-cl
+prior to building GObject-Introspection or running g-ir-scanner.  This is in line with
+building with clang-cl in place of using the stock Visual Studio compiler to perform
+builds with the Meson build system.

@@ -19,11 +19,7 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import with_statement
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+import os
 
 from . import ast
 from .xmlwriter import XMLWriter
@@ -35,12 +31,13 @@ COMPATIBLE_GIR_VERSION = '1.2'
 
 class GIRWriter(XMLWriter):
 
-    def __init__(self, namespace):
+    def __init__(self, namespace, sources_roots=[]):
         super(GIRWriter, self).__init__()
         self.write_comment(
             'This file was automatically generated from C sources - DO NOT EDIT!\n'
             'To affect the contents of this file, edit the original C definitions,\n'
             'and/or use gtk-doc annotations. ')
+        self.sources_roots = sources_roots
         self._write_repository(namespace)
 
     def _write_repository(self, namespace):
@@ -93,6 +90,8 @@ class GIRWriter(XMLWriter):
     def _write_node(self, node):
         if isinstance(node, ast.Function):
             self._write_function(node)
+        elif isinstance(node, ast.FunctionMacro):
+            self._write_function_macro(node)
         elif isinstance(node, ast.Enum):
             self._write_enum(node)
         elif isinstance(node, ast.Bitfield):
@@ -114,6 +113,8 @@ class GIRWriter(XMLWriter):
             self._write_alias(node)
         elif isinstance(node, ast.Constant):
             self._write_constant(node)
+        elif isinstance(node, ast.DocSection):
+            self._write_doc_section(node)
         else:
             print('WRITER: Unhandled node', node)
 
@@ -121,13 +122,34 @@ class GIRWriter(XMLWriter):
         if node.version:
             attrs.append(('version', node.version))
 
+    def _get_relative_path(self, filename):
+        res = filename
+        for root in self.sources_roots:
+            relpath = ''
+            try:
+                relpath = os.path.relpath(filename, root)
+
+            # We might be on different drives on Windows, so relpath() won't work
+            except ValueError:
+                relpath = filename
+
+            if len(relpath) < len(res):
+                res = relpath
+
+        return res
+
     def _write_generic(self, node):
         for key, value in node.attributes.items():
             self.write_tag('attribute', [('name', key), ('value', value)])
 
         if hasattr(node, 'doc') and node.doc:
-            self.write_tag('doc', [('xml:space', 'preserve')],
-                           node.doc)
+            attrs = [('xml:space', 'preserve'),
+                    ('filename', self._get_relative_path(node.doc_position.filename)),
+                    ('line', str(node.doc_position.line))]
+            if node.doc_position.column:
+                attrs.append(('column', str(node.doc_position.column)))
+
+            self.write_tag('doc', attrs, node.doc)
 
         if hasattr(node, 'version_doc') and node.version_doc:
             self.write_tag('doc-version', [('xml:space', 'preserve')],
@@ -140,6 +162,14 @@ class GIRWriter(XMLWriter):
         if hasattr(node, 'stability_doc') and node.stability_doc:
             self.write_tag('doc-stability', [('xml:space', 'preserve')],
                            node.stability_doc)
+
+        filepos = getattr(node, 'get_main_position', lambda: None)()
+        if filepos is not None:
+            position = [('filename', self._get_relative_path(filepos.filename)),
+                        ('line', str(filepos.line))]
+            if filepos.column:
+                position.append(('column', str(filepos.column)))
+            self.write_tag('source-position', position)
 
     def _append_node_generic(self, node, attrs):
         if node.skip or not node.introspectable:
@@ -196,6 +226,15 @@ class GIRWriter(XMLWriter):
             attrs.append(('moved-to', func.moved_to))
         self._write_callable(func, tag_name, attrs)
 
+    def _write_function_macro(self, macro):
+        attrs = [('name', macro.name),
+                 ('c:identifier', macro.symbol)]
+        self._append_version(macro, attrs)
+        self._append_node_generic(macro, attrs)
+        with self.tagcontext('function-macro', attrs):
+            self._write_generic(macro)
+            self._write_untyped_parameters(macro)
+
     def _write_method(self, method):
         self._write_function(method, tag_name='method')
 
@@ -228,6 +267,20 @@ class GIRWriter(XMLWriter):
                 self._write_parameter(callable, callable.instance_parameter, 'instance-parameter')
             for parameter in callable.parameters:
                 self._write_parameter(callable, parameter)
+
+    def _write_untyped_parameters(self, macro):
+        if not macro.parameters:
+            return
+        with self.tagcontext('parameters'):
+            for parameter in macro.parameters:
+                self._write_untyped_parameter(macro, parameter)
+
+    def _write_untyped_parameter(self, macro, parameter):
+        attrs = []
+        if parameter.argname is not None:
+            attrs.append(('name', parameter.argname))
+        with self.tagcontext('parameter', attrs):
+            self._write_generic(parameter)
 
     def _write_parameter(self, parent, parameter, nodename='parameter'):
         attrs = []
@@ -386,10 +439,16 @@ class GIRWriter(XMLWriter):
         attrs = [('name', member.name),
                  ('value', str(member.value)),
                  ('c:identifier', member.symbol)]
+        self._append_version(member, attrs)
         if member.nick is not None:
             attrs.append(('glib:nick', member.nick))
         with self.tagcontext('member', attrs):
             self._write_generic(member)
+
+    def _write_doc_section(self, doc_section):
+        attrs = [('name', doc_section.name)]
+        with self.tagcontext('docsection', attrs):
+            self._write_generic(doc_section)
 
     def _write_constant(self, constant):
         attrs = [('name', constant.name),
@@ -575,6 +634,7 @@ class GIRWriter(XMLWriter):
                 raise AssertionError("Unknown field anonymous: %r" % (field.anonymous_node, ))
         else:
             attrs = [('name', field.name)]
+            self._append_version(field, attrs)
             self._append_node_generic(field, attrs)
             # Fields are assumed to be read-only
             # (see also girparser.c and generate.c)

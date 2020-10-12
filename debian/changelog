@@ -1,3 +1,217 @@
+gobject-introspection (1.66.1-1) unstable; urgency=medium
+
+  * New upstream release
+    - Update GLib annotations
+    - gimarshallingtests: Add more tests for flags
+    - Revert a documentation-processing change that caused regressions
+  * d/p/debian/multiarch_compat.patch: Move from d/p/ to debian/
+    subdirectory.
+    This is a Debian-specific patch that is not intended to go upstream.
+
+ -- Simon McVittie <smcv@debian.org>  Mon, 12 Oct 2020 10:30:19 +0100
+
+gobject-introspection (1.66.0-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+    - Support the gtk-doc GTK 4 action syntax
+    - GITypeInfo storage type utility API
+    - Fix XDG_DATA_DIRS logic
+    - libgirepository: Add missing nullable annotations
+    - dumper: Fix missing symbols in LTO case or with overridden symbol
+      visibility settings
+    - Documentation improvements
+    - giscanner: parse block comments for members and fields
+    - Add the notion of standalone doc sections
+    - giscanner: Fix section matching for documentation
+  * Update symbols file
+
+ -- Simon McVittie <smcv@debian.org>  Tue, 22 Sep 2020 09:39:58 +0100
+
+gobject-introspection (1.64.1-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+    - d/p/gimarshallingtests-Use-g_assert_cmpfloat_with_epsilon.patch:
+      Drop patch, applied upstream
+
+ -- Simon McVittie <smcv@debian.org>  Sun, 12 Apr 2020 12:02:48 +0100
+
+gobject-introspection (1.64.0-2) unstable; urgency=medium
+
+  * debian/dh_girepository: Make the parsing of BD more robust.
+    Thanks to Simon McVittie (Closes: #933729)
+
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 28 Mar 2020 20:17:49 +0100
+
+gobject-introspection (1.64.0-1) experimental; urgency=medium
+
+  [ Simon McVittie ]
+  * Add Breaks on older cjs, to avoid broken partial upgrades when
+    transitioning to libffi7 (see version 1.62.0-5 for more details)
+
+  [ Iain Lane ]
+  * New upstream release
+    + Update glib annotations
+    + Fix regress scanner tests for non-gcc/clang compilers
+  * gimarshallingtests-Use-g_assert_cmpfloat_with_epsilon.patch: Add. Don't
+    perform exact float comparisons; this doesn't work everywhere -
+    particularly on i386. This should fix the tests for gjs 1.62.
+
+ -- Iain Lane <iain.lane@canonical.com>  Thu, 12 Mar 2020 18:17:19 +0000
+
+gobject-introspection (1.63.2-1) experimental; urgency=medium
+
+  * New upstream release
+    - Add GMemoryMonitor to glib annotations
+    - autotools: Make INTROSPECTION_GIRDIR/INTROSPECTION_TYPELIBDIR respect
+      prefix/datadir/libdir
+    - build: require meson 0.50.1
+    - build: use proper dylib versioning on macOS
+    - Cross compile support
+    - Drop deprecated xml.etree.ElementTree.Element.getchildren() calls
+    - Fix a memory leak in g_irepository_get_object_gtype_interfaces()
+    - Fix build reproducibility
+    - Fix non-libtool code being run with no nob-libtool dependencies
+    - girepository: Also store GType cache misses
+    - meson: change "cairo" from a boolean to a feature option
+    - meson: change "doctool" from a boolean to a feature option
+    - scanner: Support array arguments with static keyword
+    - tests: Actually test libregress by specifying the LD_LIBRARY_PATH
+    - Update glib annotations
+  * rules: Update doctool/cairo build flags for bool → feature switch
+  * control: Bump BD on meson to 0.50.1 per upstream
+
+ -- Iain Lane <laney@debian.org>  Mon, 17 Feb 2020 18:19:18 +0000
+
+gobject-introspection (1.62.0-5) unstable; urgency=medium
+
+  * Team upload
+
+  [ Simon McVittie ]
+  * Add more Breaks, to avoid broken partial upgrades during the libffi7
+    transition by ensuring that users of our libffi-related APIs are
+    upgraded to a version that was definitely built against libffi7
+    - libgjs0g (<< 1.58.1-2~)
+    - libglib-object-introspection-perl (<< 0.048-2~)
+    - ruby-gobject-introspection (<< 3.4.1-2~)
+  * Version the (build-)dependency on GLib to make sure libgobject is
+    also not linked to libffi6
+
+  [ Iain Lane ]
+  * rules: Pass the private module directory to dh_python3.
+    We only build for the default python version. Previously dh_python3
+    wasn't finding the directory containing the private modules, so it
+    didn't know this. (Closes: #950267)
+
+ -- Simon McVittie <smcv@debian.org>  Mon, 03 Feb 2020 19:29:41 +0000
+
+gobject-introspection (1.62.0-4) unstable; urgency=medium
+
+  * Team upload
+
+  [ Simon McVittie ]
+  * Add dependencies for libffi transition:
+    - Build-depend on libffi-dev (>= 3.3) to guarantee that our ABI
+      includes libffi7 objects
+    - Change -dev dependency to libffi-dev (>= 3.3) too
+    - d/libgirepository-1.0-1.symbols: Bump ffi-related symbols to 1.62.0-4~.
+      This forces dependent packages to pick up a suitably versioned
+      dependency on this package.
+    - Add Breaks on older python-gi and python3-gi versions that would
+      have expected libffi6 objects.
+      The same should ideally be done for cjs, gjs,
+      libglib-object-introspection-perl and ruby-gnome, but they haven't
+      had a sourceful upload since the libffi7 transition started, and I
+      would prefer not to add Breaks on specific binNMU versions.
+  * Bump Standards-Version to 4.5.0 (no changes required)
+
+  [ lintian-brush ]
+  * Set field Upstream-Name in debian/copyright.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+
+ -- Simon McVittie <smcv@debian.org>  Thu, 30 Jan 2020 00:09:56 +0000
+
+gobject-introspection (1.62.0-3) unstable; urgency=medium
+
+  * Team upload
+  * d/tests/build: Mark as superficial
+  * Explicitly build-depend on dh-python, fixing FTBFS with
+    python3-defaults (>= 3.7.5-3)
+  * Use debhelper-compat 12
+  * Use dh-sequence-gnome and dh-sequence-python3 build-dependencies to
+    enable debhelper addons
+  * d/copyright: Fix syntax.
+    Patterns with character classes, such as foo.[ch], are not supported
+    by the machine-readable copyright file spec.
+  * d/tests: Fix some shellcheck warnings
+  * d/tests/build: Make autopkgtest cross-test-friendly
+
+ -- Simon McVittie <smcv@debian.org>  Sun, 19 Jan 2020 19:01:51 +0000
+
+gobject-introspection (1.62.0-2) unstable; urgency=medium
+
+  * Team upload.
+  * Upload to unstable.
+
+ -- Andreas Henriksson <andreas@fatal.se>  Mon, 30 Sep 2019 13:58:19 +0200
+
+gobject-introspection (1.62.0-1) experimental; urgency=medium
+
+  [ Iain Lane ]
+  * New upstream release
+    + Add documentation to the RelaxNG schema
+    + Add Vulkan gir
+    + cachestore: handle cache getting deleted while loading it
+    + Drop autotools build system
+    + dumper: Use the distutils linker
+    + gimarshallingtests: Add a marshalling test case for GPtrArrays and
+      GArrays of structures
+    + Make g_irepository_get_object_gtype_interfaces actually work
+    + meson: Fix wrong dependency type check for gio-unix
+    + meson: require 0.49.2
+    + meson: use pkg-config directly for libffi cflags and libs
+    + regress: Add regression test for signal with GError param
+    + scanner: parse and expose function macros
+    + structinfo: Fix offset in find_method()
+    + tests: Don't include "config.h" in installed files
+    + Unused variable fixes
+    + Update glib annotations
+
+  [ Philip Chimento ]
+  * debian/control.in: Bump meson build dependency. This is a new requirement
+    documented in the upstream meson.build file.
+  * debian/patches: Refresh
+  * Install new Vulkan-1.0.typelib. This is now part of the gir1.2-freedesktop
+    package which Provides gir1.2-vulkan-1.0 as well.
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 10 Sep 2019 21:50:41 +1000
+
+gobject-introspection (1.60.1-1) experimental; urgency=medium
+
+  * New upstream release
+    + docs: include '--c-include' in g-ir-scanner man page
+    + meson: always pass --quiet to g-ir-scanner
+    + tests: Fix compatibility with Python 3.5
+    + Update glib annotations (glib-2-60)
+
+ -- Iain Lane <laney@debian.org>  Tue, 09 Apr 2019 09:51:49 +0100
+
+gobject-introspection (1.60.0-1) experimental; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bicha <jbicha@debian.org>  Sun, 10 Mar 2019 13:02:02 -0400
+
+gobject-introspection (1.59.4-1) experimental; urgency=medium
+
+  * New upstream development release
+  * Build with meson
+  * debian/libgirepository-1.0-1.symbols: Add new symbols
+
+ -- Jeremy Bicha <jbicha@debian.org>  Thu, 07 Feb 2019 19:02:20 -0500
+
 gobject-introspection (1.58.3-2) unstable; urgency=medium
 
   * Add Provides: dh-sequence-gir

@@ -1,5 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: https://download.gnome.org/sources/gobject-introspection/
+Upstream-Name: GObject Introspection
 
 Files: *
 Copyright:
@@ -19,7 +20,14 @@ License: GPL-2+
  On Debian systems, the complete text of the GNU General Public
  License can be found in `/usr/share/common-licenses/GPL-2'.
 
-Files: girepository/*.[ch] giscanner/giscannermodule.c giscanner/sourcescanner.[ch] tools/compiler.c tools/generate.c
+Files:
+ girepository/*.c
+ girepository/*.h
+ giscanner/giscannermodule.c
+ giscanner/sourcescanner.c
+ giscanner/sourcescanner.h
+ tools/compiler.c
+ tools/generate.c
 Copyright: Copyright (C) 2010 Red Hat, Inc.
 License: LGPL-2+
  This library is free software; you can redistribute it and/or

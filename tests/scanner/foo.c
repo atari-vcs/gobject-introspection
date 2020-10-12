@@ -1,6 +1,16 @@
+/* This file gets installed, so we can't assume config.h is available */
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #include "foo.h"
+
+/**
+ * SECTION:standalone_section
+ *
+ * This documentation section isn't associated with an object
+ * in particular, but it should be serialized in the gir nevertheless.
+ */
 
 /* A hidden type not exposed publicly, similar to GUPNP's XML wrapper
    object */

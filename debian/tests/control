@@ -1,4 +1,5 @@
 Tests: build
+Restrictions: superficial
 # deliberately avoid depending on gir1.2-glib-2.0 and friends; gir1.2-gtk-3.0
 # ought to pull these in
 Depends: build-essential, libgirepository1.0-dev, gir1.2-gtk-3.0, libcairo2-dev

@@ -30,6 +30,11 @@ struct _OffsetsBasic {
   gdouble field_double;
   char dummy8;
   gsize field_size;
+  char dummy9;
+  guchar field_uchar1;
+  char dummy10;
+  unsigned char field_uchar2;
+  char dummy11;
 };
 
 typedef enum {
@@ -117,6 +122,21 @@ struct _OffsetsArray
   gdouble some_doubles[4];
   OffsetsEnum1 some_enum[2];
   gpointer some_ptrs[5];
+};
+
+/* Test multi-dimensional arrays */
+
+typedef struct _OffsetsMultiDimArray OffsetsMultiDimArray;
+
+struct _OffsetsMultiDimArray
+{
+  gint ints[10][2];
+  gchar chars[255][10];
+  float floats[11][13][17];
+  gchar* pointers1[3][5];
+  gpointer pointers2[7][9];
+  double** pointers3[2][3][4];
+  gchar dummy;
 };
 
 /* Test object offsets */

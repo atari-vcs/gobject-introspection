@@ -34,6 +34,52 @@ test_constructor_return_type(GIBaseInfo* object_info)
   g_assert (strcmp (class_name, return_name) == 0);
 }
 
+static void
+test_type_info_get_name (GIRepository *repo)
+{
+  GIBaseInfo *base;
+  GIVFuncInfo *vfunc;
+  GITypeInfo *typeinfo;
+
+  base = g_irepository_find_by_name (repo, "Gio", "File");
+  g_assert_nonnull (base);
+  g_assert_true (GI_IS_INTERFACE_INFO (base));
+  vfunc = g_interface_info_find_vfunc ((GIInterfaceInfo*)base, "read_async");
+  g_assert_nonnull (vfunc);
+  g_base_info_unref ((GIBaseInfo*)base);
+
+  typeinfo = g_callable_info_get_return_type (vfunc);
+  g_assert_nonnull (typeinfo);
+  g_base_info_unref ((GIBaseInfo*)vfunc);
+
+  /* https://gitlab.gnome.org/GNOME/gobject-introspection/issues/96 */
+  g_assert_null (g_base_info_get_name (typeinfo));
+  g_base_info_unref ((GIBaseInfo*)typeinfo);
+}
+
+static void
+test_get_gtype_interfaces (GIRepository *repo)
+{
+  GIInterfaceInfo **interfaces;
+  guint n_interfaces, ix;
+  gboolean found_initable = FALSE, found_async_initable = FALSE;
+
+  g_irepository_get_object_gtype_interfaces (repo, G_TYPE_DBUS_CONNECTION, &n_interfaces, &interfaces);
+
+  g_assert_cmpuint (n_interfaces, ==, 2);
+
+  for (ix = 0; ix < n_interfaces; ix++)
+    {
+      const gchar *name = g_base_info_get_name(*(interfaces + ix));
+      if (strcmp (name, "Initable") == 0)
+        found_initable = TRUE;
+      else if (strcmp (name, "AsyncInitable") == 0)
+        found_async_initable = TRUE;
+    }
+
+  g_assert_true (found_initable);
+  g_assert_true (found_async_initable);
+}
 
 int
 main(int argc, char **argv)
@@ -136,6 +182,9 @@ main(int argc, char **argv)
     g_assert (invoker != NULL);
     g_assert (strcmp (g_base_info_get_name ((GIBaseInfo*)invoker), "get_display") == 0);
   }
+
+  test_type_info_get_name (repo);
+  test_get_gtype_interfaces (repo);
 
   /* Error quark tests */
   errorinfo = g_irepository_find_by_error_domain (repo, G_RESOLVER_ERROR);
