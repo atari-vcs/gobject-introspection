@@ -1,3 +1,10 @@
+gobject-introspection (1.58.3-2co1) apertis; urgency=medium
+
+  [ Ritesh Raj Sarraf ]
+  * debian/apertis/component: Set to target
+
+ -- Emanuele Aina <emanuele.aina@collabora.com>  Mon, 15 Feb 2021 11:44:56 +0000
+
 gobject-introspection (1.58.3-2) unstable; urgency=medium
 
   * Add Provides: dh-sequence-gir
