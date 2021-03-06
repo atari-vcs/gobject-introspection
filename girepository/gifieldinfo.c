@@ -44,7 +44,7 @@
  * <refsect1 id="gi-gifieldinfo.struct-hierarchy" role="struct_hierarchy">
  * <title role="struct_hierarchy.title">Struct hierarchy</title>
  * <synopsis>
- *   <link linkend="gi-GIBaseInfo">GIBaseInfo</link>
+ *   <link linkend="GIBaseInfo">GIBaseInfo</link>
  *    +----GIFieldInfo
  * </synopsis>
  * </refsect1>
@@ -109,7 +109,7 @@ g_field_info_get_size (GIFieldInfo *info)
  * g_field_info_get_offset:
  * @info: a #GIFieldInfo
  *
- * Obtain the offset in bits of the field member, this is relative
+ * Obtain the offset in bytes of the field member, this is relative
  * to the beginning of the struct or union.
  *
  * Returns: the field offset

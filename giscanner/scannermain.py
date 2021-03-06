@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- Mode: Python -*-
 # GObject-Introspection - a framework for introspecting GObject libraries
 # Copyright (C) 2008-2010 Johan Dahlin
@@ -19,11 +18,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 #
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import errno
 import optparse
@@ -126,6 +120,15 @@ def _get_option_parser():
     parser.add_option("", "--program",
                       action="store", dest="program", default=None,
                       help="program to execute")
+    parser.add_option("", "--use-binary-wrapper",
+                      action="store", dest="wrapper", default=None,
+                      help="wrapper to use for running programs (useful when cross-compiling)")
+    parser.add_option("", "--use-ldd-wrapper",
+                      action="store", dest="ldd_wrapper", default=None,
+                      help="wrapper to use instead of ldd (useful when cross-compiling)")
+    parser.add_option("", "--lib-dirs-envvar",
+                      action="store", dest="lib_dirs_envvar", default=None,
+                      help="environment variable to write a list of library directories to (for running the transient binary), instead of standard LD_LIBRARY_PATH")
     parser.add_option("", "--program-arg",
                       action="append", dest="program_args", default=[],
                       help="extra arguments to program")
@@ -248,6 +251,11 @@ match the namespace prefix.""")
     parser.add_option("", "--include-last-in-src",
                       action="append", dest="include_last_src", default=[],
                       help="Header to include after the other headers in generated sources")
+    parser.add_option("", "--sources-top-dirs", default=[], action='append',
+                      help="Paths to the sources directories used to determine"
+                      " relative files locations to be used in the gir file."
+                      " This is especially useful when build dir and source dir are different"
+                      " and mirrored.")
 
     return parser
 
@@ -418,6 +426,17 @@ def create_binary(transformer, options, args):
                                               gdump_parser.get_error_quark_functions())
 
     shlibs = resolve_shlibs(options, binary, options.libraries)
+    if options.wrapper:
+        # The wrapper needs the binary itself, not the libtool wrapper script,
+        # so we check if libtool has sneaked the binary into .libs subdirectory
+        # and adjust the path accordingly
+        import os.path
+        dir_name, binary_name = os.path.split(binary.args[0])
+        libtool_binary = os.path.join(dir_name, '.libs', binary_name)
+        if os.path.exists(libtool_binary):
+            binary.args[0] = libtool_binary
+        # Then prepend the wrapper to the command line to execute
+        binary.args = [options.wrapper] + binary.args
     gdump_parser.set_introspection_binary(binary)
     gdump_parser.parse()
     return shlibs
@@ -428,6 +447,7 @@ def create_source_scanner(options, args):
         filenames = extract_filelist(options)
     else:
         filenames = extract_filenames(args)
+    filenames = [os.path.realpath(f) for f in filenames]
 
     if platform.system() == 'Darwin':
         options.cpp_undefines.append('__BLOCKS__')
@@ -439,9 +459,13 @@ def create_source_scanner(options, args):
                        options.cpp_defines,
                        options.cpp_undefines,
                        cflags=options.cflags)
-    ss.parse_files(filenames)
-    ss.parse_macros(filenames)
-    return ss
+    try:
+        ss.parse_files(filenames)
+        ss.parse_macros(filenames)
+    finally:
+        for error in ss.get_errors():
+            print(error, file=sys.stderr)
+    return ss, filenames
 
 
 def write_output(data, options):
@@ -486,6 +510,34 @@ def write_output(data, options):
         _error("while writing output: %s" % (e.strerror, ))
 
 
+def get_source_root_dirs(options, filenames):
+    if options.sources_top_dirs:
+        return [os.path.realpath(p) for p in options.sources_top_dirs]
+
+    # None passed, we need to guess
+    filenames = [os.path.realpath(p) for p in filenames]
+    dirs = sorted(set([os.path.dirname(f) for f in filenames]))
+
+    # We need commonpath (3.5+), otherwise give up
+    if not hasattr(os.path, "commonpath"):
+        return dirs
+
+    if not dirs:
+        return []
+
+    try:
+        common = os.path.commonpath(dirs)
+    except ValueError:
+        # ValueError: On Windows in case the paths are on different drives
+        return dirs
+
+    # If the only common path is the root directory give up
+    if os.path.dirname(common) == common:
+        return dirs
+
+    return [common]
+
+
 def scanner_main(args):
     parser = _get_option_parser()
     (options, args) = parser.parse_args(args)
@@ -523,7 +575,7 @@ def scanner_main(args):
     namespace = create_namespace(options)
     logger = message.MessageLogger.get(namespace=namespace)
     if options.warn_all:
-        logger.enable_warnings((message.WARNING, message.ERROR, message.FATAL))
+        logger.enable_warnings(True)
 
     transformer = create_transformer(namespace, options)
 
@@ -535,7 +587,7 @@ def scanner_main(args):
         except pkgconfig.PkgConfigError as e:
             _error(str(e))
 
-    ss = create_source_scanner(options, args)
+    ss, filenames = create_source_scanner(options, args)
 
     cbp = GtkDocCommentBlockParser()
     blocks = cbp.parse_comment_blocks(ss.get_comments())
@@ -575,7 +627,9 @@ def scanner_main(args):
 
     transformer.namespace.c_includes = options.c_includes
     transformer.namespace.exported_packages = exported_packages
-    writer = Writer(transformer.namespace)
+
+    sources_top_dirs = get_source_root_dirs(options, filenames)
+    writer = Writer(transformer.namespace, sources_top_dirs)
     data = writer.get_encoded_xml()
 
     write_output(data, options)

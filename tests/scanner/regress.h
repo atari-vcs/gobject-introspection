@@ -616,6 +616,7 @@ struct _RegressTestStructF
   const gint    **const* data4;
   volatile gint  *const data5;
   const gint     *volatile data6;
+  volatile unsigned const char data7;
 };
 
 /* plain-old-data boxed types */
@@ -845,6 +846,12 @@ _GI_TEST_EXTERN
 void       regress_test_obj_emit_sig_with_inout_int (RegressTestObj *obj);
 
 _GI_TEST_EXTERN
+void       regress_test_obj_emit_sig_with_error (RegressTestObj *self);
+
+_GI_TEST_EXTERN
+void       regress_test_obj_emit_sig_with_null_error (RegressTestObj *self);
+
+_GI_TEST_EXTERN
 int        regress_test_obj_instance_method (RegressTestObj *obj);
 
 _GI_TEST_EXTERN
@@ -860,6 +867,13 @@ void       regress_forced_method (RegressTestObj *obj);
 _GI_TEST_EXTERN
 void regress_test_array_fixed_out_objects (RegressTestObj ***objs);
 
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+# define G_GCC_STATIC static
+#else
+# define G_GCC_STATIC
+#endif
+_GI_TEST_EXTERN
+void regress_test_array_static_in_int (int x[G_GCC_STATIC 10]);
 
 _GI_TEST_EXTERN
 void regress_test_obj_torture_signature_0 (RegressTestObj    *obj,
@@ -969,6 +983,9 @@ typedef struct _RegressTestSubObjClass    RegressTestSubObjClass;
 struct _RegressTestSubObj
 {
   RegressTestObj parent_instance;
+  /*< private >*/
+  gint number;
+  gboolean boolean;
 };
 
 struct _RegressTestSubObjClass
@@ -1498,5 +1515,23 @@ struct _RegressTestReferenceCounters {
   grefcount       refcount;
   gatomicrefcount atomicrefcount;
 };
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_out_none (RegressTestStructA **arr, gsize *len);
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_out_container (RegressTestStructA **arr, gsize *len);
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_out_full_fixed (RegressTestStructA **arr);
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_out_caller_alloc (RegressTestStructA *arr, gsize len);
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_in_full (RegressTestStructA *arr, gsize len);
+
+_GI_TEST_EXTERN
+void regress_test_array_struct_in_none (RegressTestStructA *arr, gsize len);
 
 #endif /* __GITESTTYPES_H__ */

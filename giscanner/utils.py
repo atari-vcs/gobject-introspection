@@ -17,18 +17,14 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
-import errno
 import re
 import os
 import subprocess
 import platform
 import shutil
 import time
+import giscanner.pkgconfig
 
 
 _debugflags = None
@@ -218,39 +214,6 @@ def which(program):
     return None
 
 
-def makedirs(name, mode=0o777, exist_ok=False):
-    """Super-mkdir; create a leaf directory and all intermediate ones.  Works like
-    mkdir, except that any intermediate path segment (not just the rightmost)
-    will be created if it does not exist. If the target directory already
-    exists, raise an OSError if exist_ok is False. Otherwise no exception is
-    raised.  This is recursive.
-
-    Note: This function has been imported from Python 3.4 sources and adapted to work
-    with Python 2.X because get_user_cache_dir() uses the exist_ok parameter. It can
-    be removed again when Python 2.X support is dropped.
-    """
-    head, tail = os.path.split(name)
-    if not tail:
-        head, tail = os.path.split(head)
-    if head and tail and not os.path.exists(head):
-        try:
-            makedirs(head, mode, exist_ok)
-        except (IOError, OSError) as e:
-            # be happy if someone already created the path
-            if e.errno != errno.EEXIST:
-                raise
-        cdir = os.path.curdir
-        if isinstance(tail, bytes):
-            cdir = os.path.curdir.encode("ascii")
-        if tail == cdir:           # xxx/newdir/. exists if xxx/newdir exists
-            return
-    try:
-        os.mkdir(name, mode)
-    except (IOError, OSError) as e:
-        if not exist_ok or e.errno != errno.EEXIST or not os.path.isdir(name):
-            raise
-
-
 def get_user_cache_dir(dir=None):
     '''
     This is a Python reimplemention of `g_get_user_cache_dir()` because we don't want to
@@ -263,7 +226,7 @@ def get_user_cache_dir(dir=None):
         if dir is not None:
             xdg_cache_home = os.path.join(xdg_cache_home, dir)
         try:
-            makedirs(xdg_cache_home, mode=0o755, exist_ok=True)
+            os.makedirs(xdg_cache_home, mode=0o755, exist_ok=True)
         except EnvironmentError:
             # Let's fall back to ~/.cache below
             pass
@@ -276,7 +239,7 @@ def get_user_cache_dir(dir=None):
         if dir is not None:
             cachedir = os.path.join(cachedir, dir)
         try:
-            makedirs(cachedir, mode=0o755, exist_ok=True)
+            os.makedirs(cachedir, mode=0o755, exist_ok=True)
         except EnvironmentError:
             return None
         else:
@@ -292,7 +255,7 @@ def get_system_data_dirs():
     If any changes are made to that function they'll need to be copied here.
     '''
     xdg_data_dirs = [x for x in os.environ.get('XDG_DATA_DIRS', '').split(os.pathsep)]
-    if not xdg_data_dirs and os.name != 'nt':
+    if not any(xdg_data_dirs) and os.name != 'nt':
         xdg_data_dirs.append('/usr/local/share')
         xdg_data_dirs.append('/usr/share')
 
@@ -320,3 +283,38 @@ def rmtree(*args, **kwargs):
             continue
         else:
             return
+
+
+# Mainly used for builds against Python 3.8.x and later on Windows where we need to be
+# more explicit on where dependent DLLs are located, via the use of
+# os.add_dll_directory().  So, we make use of the envvar GI_EXTRA_BASE_DLL_DIRS and the
+# newly-added bindir() method of our pkgconfig module to acquire the paths where dependent
+# DLLs could be found.
+class dll_dirs():
+    _cached_dll_dirs = None
+    _cached_added_dll_dirs = None
+
+    def __init__(self):
+        if os.name == 'nt' and hasattr(os, 'add_dll_directory'):
+            self._cached_dll_dirs = []
+            self._cached_added_dll_dirs = []
+
+    def add_dll_dirs(self, pkgs):
+        if os.name == 'nt' and hasattr(os, 'add_dll_directory'):
+            if 'GI_EXTRA_BASE_DLL_DIRS' in os.environ:
+                for path in os.environ.get('GI_EXTRA_BASE_DLL_DIRS').split(os.pathsep):
+                    if path not in self._cached_dll_dirs:
+                        self._cached_dll_dirs.append(path)
+                        self._cached_added_dll_dirs.append(os.add_dll_directory(path))
+
+            for path in giscanner.pkgconfig.bindir(pkgs):
+                if path not in self._cached_dll_dirs:
+                    self._cached_dll_dirs.append(path)
+                    self._cached_added_dll_dirs.append(os.add_dll_directory(path))
+
+    def cleanup_dll_dirs(self):
+        if self._cached_added_dll_dirs is not None:
+            for added_dll_dir in self._cached_added_dll_dirs:
+                added_dll_dir.close()
+        if self._cached_dll_dirs is not None:
+            self._cached_dll_dirs.clear()

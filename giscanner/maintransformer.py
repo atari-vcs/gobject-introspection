@@ -17,11 +17,6 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import re
 
 from . import ast
@@ -52,7 +47,7 @@ class MainTransformer(object):
 
     def transform(self):
         if not self._namespace.names:
-            message.fatal('Namespace is empty; likely causes are:\n'
+            message.error('Namespace is empty; likely causes are:\n'
                           '* Not including .h files to be scanned\n'
                           '* Broken --identifier-prefix')
 
@@ -73,6 +68,10 @@ class MainTransformer(object):
 
         # Read in most annotations now.
         self._namespace.walk(self._pass_read_annotations)
+
+        # Now that we have associated doc SECTIONs to classes,
+        # add the unused section blocks as standalone nodes.
+        self._add_standalone_doc_sections()
 
         # Now that we've possibly seen more types from annotations,
         # do another type resolution pass.
@@ -105,6 +104,14 @@ class MainTransformer(object):
         self._pair_quarks_with_enums()
 
     # Private
+
+    def _add_standalone_doc_sections(self):
+        for block_name, block in self._blocks.items():
+            if block_name.startswith("SECTION:") and block.description:
+                node = ast.DocSection(block_name[8:])
+                node.doc = block.description
+                node.doc_position = block.position
+                self._namespace.append(node)
 
     def _pass_fixup_hidden_fields(self, node, chain):
         """Hide all callbacks starting with _; the typical
@@ -181,6 +188,16 @@ class MainTransformer(object):
         block = self._blocks.get(node.symbol)
         self._apply_annotations_callable(node, chain, block)
 
+    def _apply_annotations_function_macro(self, node, chain):
+        block = self._blocks.get(node.symbol)
+        for param in node.parameters:
+            if block:
+                doc_param = block.params.get(param.argname)
+                if doc_param:
+                    param.doc = doc_param.description
+                    param.doc_position = doc_param.position
+        self._apply_annotations_annotated(node, block)
+
     def _pass_read_annotations_early(self, node, chain):
         if isinstance(node, ast.Record):
             if node.ctype is not None:
@@ -220,6 +237,8 @@ class MainTransformer(object):
             self._apply_annotations_alias(node, chain)
         if isinstance(node, ast.Function):
             self._apply_annotations_function(node, chain)
+        if isinstance(node, ast.FunctionMacro):
+            self._apply_annotations_function_macro(node, chain)
         if isinstance(node, ast.Callback):
             self._apply_annotations_callable(node, chain, block=self._get_block(node))
         if isinstance(node, (ast.Class, ast.Interface, ast.Union, ast.Enum,
@@ -233,9 +252,10 @@ class MainTransformer(object):
                 self._apply_annotations_field(node, block, field)
             name = self._get_annotation_name(node)
             section_name = 'SECTION:%s' % (name.lower(), )
-            block = self._blocks.get(section_name)
-            if block and block.description:
-                node.doc = block.description
+            # We pop it from our blocks so that we can serialize leftover
+            # SECTIONs as standalone nodes
+            block = self._blocks.pop(section_name, None)
+            self._apply_annotations_annotated(node, block)
         if isinstance(node, (ast.Class, ast.Interface)):
             for prop in node.properties:
                 self._apply_annotations_property(node, prop)
@@ -663,11 +683,12 @@ class MainTransformer(object):
 
         if ANN_OPTIONAL in annotations:
             if (not isinstance(node, ast.Return) and
-                    node.direction == ast.PARAM_DIRECTION_OUT):
+                    node.direction in [ast.PARAM_DIRECTION_OUT,
+                                       ast.PARAM_DIRECTION_INOUT]):
                 node.optional = True
             else:
                 message.warn('invalid "optional" annotation: '
-                             'only valid for out parameters',
+                             'only valid for out and inout parameters',
                              annotations.position)
 
         if ANN_ALLOW_NONE in annotations:
@@ -693,6 +714,7 @@ class MainTransformer(object):
 
         if tag and tag.description:
             node.doc = tag.description
+            node.doc_position = tag.position
 
         if ANN_SKIP in annotations:
             node.skip = True
@@ -710,6 +732,7 @@ class MainTransformer(object):
 
         if block.description:
             node.doc = block.description
+            node.doc_position = block.position
 
         since_tag = block.tags.get(TAG_SINCE)
         if since_tag is not None:
@@ -849,18 +872,28 @@ class MainTransformer(object):
         self._apply_annotations_params(node, node.parameters, block)
         self._apply_annotations_return(node, node.retval, block)
 
-    def _apply_annotations_field(self, parent, block, field):
-        if not block:
+    def _apply_annotations_field(self, parent, parent_block, field):
+        block = self._blocks.get('%s.%s' % (self._get_annotation_name(parent), field.name))
+
+        # Prioritize block level documentation
+        if block:
+            self._apply_annotations_annotated(field, block)
+            annotations = block.annotations
+        elif not parent_block:
             return
-        tag = block.params.get(field.name)
-        if not tag:
-            return
-        type_annotation = tag.annotations.get(ANN_TYPE)
+        else:
+            tag = parent_block.params.get(field.name)
+            if not tag:
+                return
+            annotations = tag.annotations
+            field.doc = tag.description
+            field.doc_position = tag.position
+
+        type_annotation = annotations.get(ANN_TYPE)
         if type_annotation:
             field.type = self._transformer.create_type_from_user_string(type_annotation[0])
-        field.doc = tag.description
         try:
-            self._adjust_container_type(parent, field, tag.annotations)
+            self._adjust_container_type(parent, field, annotations)
         except AttributeError as ex:
             print(ex)
 
@@ -928,14 +961,21 @@ class MainTransformer(object):
         if value_annotation:
             node.value = value_annotation[0]
 
-    def _apply_annotations_enum_members(self, node, block):
-        if block is None:
-            return
-
+    def _apply_annotations_enum_members(self, node, parent_block):
         for m in node.members:
-            param = block.params.get(m.symbol, None)
-            if param and param.description:
-                m.doc = param.description
+            block = self._blocks.get(m.symbol)
+            # Prioritize block-level documentation
+            if block:
+                self._apply_annotations_annotated(m, block)
+            elif parent_block:
+                param = parent_block.params.get(m.symbol)
+
+                if not param:
+                    continue
+
+                if param.description:
+                    m.doc = param.description
+                    m.doc_position = param.position
 
     def _pass_read_annotations2(self, node, chain):
         if isinstance(node, ast.Function):

@@ -19,11 +19,6 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 import shlex
@@ -96,10 +91,6 @@ class DumpCompiler(object):
         self._uninst_srcdir = os.environ.get('UNINSTALLED_INTROSPECTION_SRCDIR')
         self._packages = ['gio-2.0', 'gmodule-2.0']
         self._packages.extend(options.packages)
-        if self._compiler.check_is_msvc():
-            self._linker_cmd = ['link.exe']
-        else:
-            self._linker_cmd = shlex.split(os.environ.get('CC', 'cc'))
 
     # Public API
 
@@ -135,7 +126,7 @@ class DumpCompiler(object):
             if len(self._get_type_functions) > 0:
                 for func in self._get_type_functions:
                     f.write("extern GType " + func + "(void);\n")
-                f.write("GType (*GI_GET_TYPE_FUNCS_[])(void) = {\n")
+                f.write("G_MODULE_EXPORT GType (*GI_GET_TYPE_FUNCS_[])(void) = {\n")
                 first = True
                 for func in self._get_type_functions:
                     if first:
@@ -147,7 +138,7 @@ class DumpCompiler(object):
             if len(self._error_quark_functions) > 0:
                 for func in self._error_quark_functions:
                     f.write("extern GQuark " + func + "(void);\n")
-                f.write("GQuark (*GI_ERROR_QUARK_FUNCS_[])(void) = {\n")
+                f.write("G_MODULE_EXPORT GQuark (*GI_ERROR_QUARK_FUNCS_[])(void) = {\n")
                 first = True
                 for func in self._error_quark_functions:
                     if first:
@@ -207,7 +198,7 @@ class DumpCompiler(object):
             if self._options.quiet:
                 args.append('--silent')
 
-        args.extend(self._linker_cmd)
+        args.extend(self._compiler.linker_cmd)
 
         # We can use -o for the Microsoft compiler/linker,
         # but it is considered deprecated usage
@@ -249,7 +240,8 @@ class DumpCompiler(object):
                                                    libtool,
                                                    self._options.libraries,
                                                    self._options.extra_libraries,
-                                                   self._options.library_paths)
+                                                   self._options.library_paths,
+                                                   self._options.lib_dirs_envvar)
             args.extend(pkg_config_libs)
 
         else:
@@ -259,6 +251,9 @@ class DumpCompiler(object):
         if not self._compiler.check_is_msvc():
             for ldflag in shlex.split(os.environ.get('LDFLAGS', '')):
                 args.append(ldflag)
+
+        dll_dirs = utils.dll_dirs()
+        dll_dirs.add_dll_dirs(self._packages)
 
         if not self._options.quiet:
             print("g-ir-scanner: link: %s" % (
@@ -286,6 +281,7 @@ class DumpCompiler(object):
         finally:
             if msys:
                 os.remove(tf_name)
+            dll_dirs.cleanup_dll_dirs()
 
 
 def compile_introspection_binary(options, get_type_functions,

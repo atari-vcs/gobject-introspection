@@ -18,24 +18,22 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import with_statement
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import tempfile
 
 from .libtoolimporter import LibtoolImporter
 from .message import Position
 from .ccompiler import CCompiler
+from .utils import have_debug_flag, dll_dirs
 
 with LibtoolImporter(None, None):
+    dlldirs = dll_dirs()
+    dlldirs.add_dll_dirs(['gio-2.0'])
     if 'UNINSTALLED_INTROSPECTION_SRCDIR' in os.environ:
         from _giscanner import SourceScanner as CSourceScanner
     else:
         from giscanner._giscanner import SourceScanner as CSourceScanner
+    dlldirs.cleanup_dll_dirs()
 
 HEADER_EXTS = ['.h', '.hpp', '.hxx']
 SOURCE_EXTS = ['.c', '.cpp', '.cc', '.cxx']
@@ -46,11 +44,12 @@ ALL_EXTS = SOURCE_EXTS + HEADER_EXTS
  CSYMBOL_TYPE_CONST,
  CSYMBOL_TYPE_OBJECT,
  CSYMBOL_TYPE_FUNCTION,
+ CSYMBOL_TYPE_FUNCTION_MACRO,
  CSYMBOL_TYPE_STRUCT,
  CSYMBOL_TYPE_UNION,
  CSYMBOL_TYPE_ENUM,
  CSYMBOL_TYPE_TYPEDEF,
- CSYMBOL_TYPE_MEMBER) = range(10)
+ CSYMBOL_TYPE_MEMBER) = range(11)
 
 (CTYPE_INVALID,
  CTYPE_VOID,
@@ -95,6 +94,7 @@ def symbol_type_name(symbol_type):
         CSYMBOL_TYPE_CONST: 'const',
         CSYMBOL_TYPE_OBJECT: 'object',
         CSYMBOL_TYPE_FUNCTION: 'function',
+        CSYMBOL_TYPE_FUNCTION_MACRO: 'function_macro',
         CSYMBOL_TYPE_STRUCT: 'struct',
         CSYMBOL_TYPE_UNION: 'union',
         CSYMBOL_TYPE_ENUM: 'enum',
@@ -274,6 +274,9 @@ class SourceScanner(object):
     def get_comments(self):
         return self._scanner.get_comments()
 
+    def get_errors(self):
+        return self._scanner.get_errors()
+
     def dump(self):
         print('-' * 30)
         for symbol in self._scanner.get_symbols():
@@ -306,12 +309,11 @@ class SourceScanner(object):
                       tmpfile_output,
                       self._cpp_options)
 
-        os.unlink(tmp_name_cpp)
-        fp = open(tmpfile_output, 'r')
-
-        self._scanner.parse_file(fp.fileno())
-        fp.close()
-        os.unlink(tmpfile_output)
+        if not have_debug_flag('save-temps'):
+            os.unlink(tmp_name_cpp)
+        self._scanner.parse_file(tmpfile_output)
+        if not have_debug_flag('save-temps'):
+            os.unlink(tmpfile_output)
 
     def _write_preprocess_src(self, fp, defines, undefs, filenames):
         # Write to the temp file for feeding into the preprocessor

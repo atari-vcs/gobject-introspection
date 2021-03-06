@@ -18,11 +18,6 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import errno
 import glob
 import hashlib
@@ -30,11 +25,7 @@ import os
 import shutil
 import sys
 import tempfile
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import pickle
 
 import giscanner
 
@@ -115,8 +106,12 @@ class CacheStore(object):
         return os.path.join(self._directory, hexdigest)
 
     def _cache_is_valid(self, store_filename, filename):
-        return (os.stat(store_filename).st_mtime >=
-                os.stat(filename).st_mtime)
+        try:
+            store_mtime = os.stat(store_filename).st_mtime
+        except FileNotFoundError:
+            return False
+
+        return store_mtime >= os.stat(filename).st_mtime
 
     def _remove_filename(self, filename):
         try:
@@ -139,7 +134,7 @@ class CacheStore(object):
         if store_filename is None:
             return
 
-        if (os.path.exists(store_filename) and self._cache_is_valid(store_filename, filename)):
+        if self._cache_is_valid(store_filename, filename):
             return None
 
         tmp_fd, tmp_filename = tempfile.mkstemp(prefix='g-ir-scanner-cache-')
@@ -178,7 +173,7 @@ class CacheStore(object):
             return None
         try:
             data = pickle.load(fd)
-        except (AttributeError, EOFError, ValueError, pickle.BadPickleGet):
+        except Exception:
             # Broken cache entry, remove it
             self._remove_filename(store_filename)
             data = None

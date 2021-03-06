@@ -29,24 +29,13 @@ should match, resulting symbolic groups are verified
 against the expected output.
 '''
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-import sys
 import unittest
 
 from giscanner.annotationparser import (COMMENT_BLOCK_START_RE, COMMENT_BLOCK_END_RE,
                                         COMMENT_ASTERISK_RE, INDENTATION_RE, EMPTY_LINE_RE,
-                                        SECTION_RE, SYMBOL_RE, PROPERTY_RE,
+                                        SECTION_RE, SYMBOL_RE, PROPERTY_RE, ACTION_RE,
                                         SIGNAL_RE, PARAMETER_RE, TAG_RE,
                                         TAG_VALUE_VERSION_RE, TAG_VALUE_STABILITY_RE)
-
-if sys.version_info.major < 3:
-    encode_name = lambda s: s.encode('ascii')
-else:
-    encode_name = lambda s: s
 
 
 comment_start_tests = [
@@ -674,6 +663,157 @@ identifier_signal_tests = [
           'delimiter': ':',
           'fields': '(type GLib.List(GLib.List(utf8))) (transfer full)'})]
 
+identifier_action_tests = [
+    (ACTION_RE, 'GtkWidget|group.action (skip)',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': '',
+          'fields': '(skip)'}),
+    (ACTION_RE, 'GtkWidget|group.action',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, ' GtkWidget |group.action',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget| group.action ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, '  GtkWidget  |  group.action  ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget|group.action:',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget|group.action:  ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, '  GtkWidget|group.action:',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Something|group.action:',
+         {'class_name': 'Something',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Something|group.action:  ',
+         {'class_name': 'Something',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, '  Something|group.action:',
+         {'class_name': 'Something',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Weird-thing|name:',
+         None),
+    (ACTION_RE, 'really-weird_thing|name:',
+         None),
+    (ACTION_RE, 'GWin32InputStream|group.action:',
+         {'class_name': 'GWin32InputStream',
+          'action_name': 'group.action',
+          'delimiter': ':',
+          'fields': ''}),
+    # properties: action name that contains a dash
+    (ACTION_RE, 'GtkWidget|group.double-buffered (skip)',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': '',
+          'fields': '(skip)'}),
+    (ACTION_RE, 'GtkWidget|group.double-buffered',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, ' GtkWidget |group.double-buffered',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget| group.double-buffered ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, '  GtkWidget  |  group.double-buffered  ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget|group.double-buffered:',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'GtkWidget|group.double-buffered:  ',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, '  GtkWidget|group.double-buffered:',
+         {'class_name': 'GtkWidget',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Something|group.double-buffered:',
+         {'class_name': 'Something',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Something|group.double-buffered:  ',
+         {'class_name': 'Something',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, '  Something|group.double-buffered:',
+         {'class_name': 'Something',
+          'action_name': 'group.double-buffered',
+          'delimiter': ':',
+          'fields': ''}),
+    (ACTION_RE, 'Weird-thing|double-buffered:',
+         None),
+    (ACTION_RE, 'really-weird_thing|double-buffered:',
+         None),
+    (ACTION_RE, ' GMemoryOutputStream|group.realloc-function: (skip)',
+         {'class_name': 'GMemoryOutputStream',
+          'action_name': 'group.realloc-function',
+          'delimiter': ':',
+          'fields': '(skip)'}),
+    (ACTION_RE, 'Something|group-double.double-buffered',
+         {'class_name': 'Something',
+          'action_name': 'group-double.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'Something| group-double.double-buffered',
+         {'class_name': 'Something',
+          'action_name': 'group-double.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'Something |group-double.double-buffered',
+         {'class_name': 'Something',
+          'action_name': 'group-double.double-buffered',
+          'delimiter': '',
+          'fields': ''}),
+    (ACTION_RE, 'Something | group-double.double-buffered',
+         {'class_name': 'Something',
+          'action_name': 'group-double.double-buffered',
+          'delimiter': '',
+          'fields': ''})]
+
 parameter_tests = [
     (PARAMETER_RE, '@Short_description: Base class for all widgets  ',
          {'parameter_name': 'Short_description',
@@ -902,10 +1042,10 @@ def create_test_case(tests_class_name, testcases):
     for counter, test in enumerate(testcases):
         test_name = 'test_%03d' % (counter + 1)
         test_method = create_test_method(test)
-        test_method.__name__ = encode_name(test_name)
+        test_method.__name__ = test_name
         test_methods[test_name] = test_method
 
-    return type(encode_name(tests_class_name), (unittest.TestCase,), test_methods)
+    return type(tests_class_name, (unittest.TestCase,), test_methods)
 
 
 def create_test_cases():
@@ -919,6 +1059,7 @@ def create_test_cases():
                             ('TestIdentifierSymbol', identifier_symbol_tests),
                             ('TestIdentifierProperty', identifier_property_tests),
                             ('TestIdentifierSignal', identifier_signal_tests),
+                            ('TestIdentifierAction', identifier_action_tests),
                             ('TestParameter', parameter_tests),
                             ('TestTag', tag_tests),
                             ('TestTagValueVersion', tag_value_version_tests),

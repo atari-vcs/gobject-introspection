@@ -18,12 +18,7 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import with_statement
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
+import os
 from contextlib import contextmanager
 
 from . import ast
@@ -148,7 +143,9 @@ class CCodeGenerator(object):
         for header in self.include_first_src:
             self.out_c.write("""#include "%s"\n""" % header)
 
-        self.out_c.write("""#include "%s"\n\n""" % (self.out_h_filename, ))
+        src_dir = os.path.dirname(os.path.realpath(self.out_c.name))
+        header = os.path.relpath(self.out_h_filename, src_dir)
+        self.out_c.write("""#include "%s"\n\n""" % (header, ))
 
         for header in self.include_last_src:
             self.out_c.write("""#include "%s"\n""" % header)

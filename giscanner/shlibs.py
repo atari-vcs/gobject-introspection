@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- Mode: Python -*-
 # GObject-Introspection - a framework for introspecting GObject libraries
 # Copyright (C) 2009 Red Hat, Inc.
@@ -19,12 +18,8 @@
 # 02110-1301, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
+import sys
 import platform
 import re
 import subprocess
@@ -102,7 +97,9 @@ def _resolve_non_libtool(options, binary, libraries):
             args.extend(libtool)
             args.append('--mode=execute')
         platform_system = platform.system()
-        if platform_system == 'Darwin':
+        if options.ldd_wrapper:
+            args.extend([options.ldd_wrapper, binary.args[0]])
+        elif platform_system == 'Darwin':
             args.extend(['otool', '-L', binary.args[0]])
         else:
             args.extend(['ldd', binary.args[0]])
@@ -110,13 +107,25 @@ def _resolve_non_libtool(options, binary, libraries):
         if isinstance(output, bytes):
             output = output.decode("utf-8", "replace")
 
-        # Use absolute paths on OS X to conform to how libraries are usually
-        # referenced on OS X systems, and file names everywhere else.
-        basename = platform.system() != 'Darwin'
-        return resolve_from_ldd_output(libraries, output, basename=basename)
+        shlibs = resolve_from_ldd_output(libraries, output)
+        return list(map(sanitize_shlib_path, shlibs))
 
 
-def resolve_from_ldd_output(libraries, output, basename=False):
+def sanitize_shlib_path(lib):
+    # Use absolute paths on OS X to conform to how libraries are usually
+    # referenced on OS X systems, and file names everywhere else.
+    # In case we get relative paths on macOS (like @rpath) then we fall
+    # back to the basename as well:
+    # https://gitlab.gnome.org/GNOME/gobject-introspection/issues/222
+    if sys.platform == "darwin":
+        if not os.path.isabs(lib):
+            return os.path.basename(lib)
+        return lib
+    else:
+        return os.path.basename(lib)
+
+
+def resolve_from_ldd_output(libraries, output):
     patterns = {}
     for library in libraries:
         if not os.path.isfile(library):
@@ -144,8 +153,6 @@ def resolve_from_ldd_output(libraries, output, basename=False):
             "ERROR: can't resolve libraries to shared libraries: " +
             ", ".join(patterns.keys()))
 
-    if basename:
-        shlibs = list(map(os.path.basename, shlibs))
     return shlibs
 
 
@@ -156,8 +163,8 @@ def resolve_from_ldd_output(libraries, output, basename=False):
 # is linking against.
 #
 def resolve_shlibs(options, binary, libraries):
-    libtool = filter(lambda x: x.endswith(".la"), libraries)
-    non_libtool = filter(lambda x: not x.endswith(".la"), libraries)
+    libtool = list(filter(lambda x: x.endswith(".la"), libraries))
+    non_libtool = list(filter(lambda x: not x.endswith(".la"), libraries))
 
     return (_resolve_libtool(options, binary, libtool) +
             _resolve_non_libtool(options, binary, non_libtool))

@@ -1,37 +1,290 @@
+1.66.1 - 2020-10-03
+-------------------
+
+* Update glib annotations
+* Windows: Fix running on different drives :mr:`239`
+* gimarshallingtests: Add more tests for flags :mr:`235`
+* Revert "giscanner: Fix section matching for documentation :mr:`237`" see :issue:`360`
+
+
+1.66.0 - 2020-09-12
+-------------------
+
+* Support the gtk-doc action syntax :mr:`203`
+* Meson fixes with glib and/or g-i is a subproject :mr:`206` :mr:`208`
+* GITypeInfo storage type utility API :mr:`205`
+* Meson: Fix build as subproject :mr:`214`
+* Fixing XDG_DATA_DIRS logic :mr:`215`
+* libgirepository: Add a couple missing nullable annotations :mr:`217` :mr:`225`
+* dumper: Fix missing symbols in LTO case or with overridden symbol visibility settings :mr:`216`
+* Documentation improvements: :mr:`220` :mr:`232`
+* Remove old autoconf fallback code for the python tools :mr:`221`
+* meson: Rename option `gi_cross_use_{host -> prebuilt}_gi` mr:`211`
+* meson: Don't override finding executables when using pre-built tools. :mr:`212`
+* meson: gir: add a dependency for g-ir-compiler for building .girs :mr:`228`
+* meson: Use pkgconfig generator :mr:`207`
+* Fix gi-dump-types.c to build on Windows :mr:`218`
+* giscanner: parse block comments for members and fields :mr:`230`
+* Add the notion of standalone doc sections :mr:`226`
+* giscanner: Add support for using clang-cl :mr:`234`
+* giscanner: Fix section matching for documentation :mr:`237`
+
+
+1.64.1 - 2020-04-05
+-------------------
+
+* Replace calls to deprecated xml.etree.cElementTree removed in Python 3.9 :mr:`202` (:user:`Stephen Gallagher <sgallagher>`)
+* gimarshallingtests: Use g_assert_cmpfloat_with_epsilon. Fixes tests on some architectures :mr:`200` (:user:`Iain Lane <iainl>`)
+
+
+1.64.0 - 2020-03-07
+-------------------
+
+* Update glib annotations (:user:`Rico Tzschichholz <ricotz>`)
+* Fix regress scanner tests for non-gcc/clang compilers :mr:`197` (:user:`Chun-wei Fan <fanc999>`)
+* Document how to update glib GIR :mr:`199` (:user:`Bastien Nocera <hadess>`)
+
+
+1.63.2 - 2020-01-17
+-------------------
+
+* Update glib annotations (:user:`Rico Tzschichholz <ricotz>`)
+* Add GMemoryMonitor to glib annotations :mr:`193` (:user:`Bastien Nocera <hadess>`)
+* Fix build reproducibility :mr:`192` (:user:`Joshua Watt <jpewhacker>`)
+* Drop deprecated xml.etree.ElementTree.Element.getchildren() calls :mr:`194` (:user:`Miro Hrončok <hroncok>`)
+* Support Python 3.8.x+ on Windows :mr:`195` (:user:`Chun-wei Fan <fanc999>`)
+* Cross compile support :mr:`64` (:user:`Alexander Kanavin <alex.kanavin>`)
+* meson: Visual Studio builds: Use -utf-8 where available :mr:`196` (:user:`Chun-wei Fan <fanc999>`)
+
+
+1.63.1 - 2019-11-24
+-------------------
+
+* Update glib annotations (:user:`Rico Tzschichholz <ricotz>`)
+* build: require meson 0.50.1
+* build: use proper dylib versioning on macOS :mr:`177` (:user:`Tom Schoonjans  <tschoonj>`)
+* scanner: Support array arguments with static keyword :mr:`176` (:user:`Emmanuele Bassi <ebassi>`)
+* website: Add Ruby-GNOME to user list :mr:`178` (:user:`kojix2`)
+* Fix non-libtool code being run with no nob-libtool dependencies :mr:`179` (:user:`Alistair Buxton <ali1234>`)
+* meson: change "cairo" from a boolean to a feature option :mr:`180`
+* meson: change "doctool" from a boolean to a feature option :mr:`181`
+* Fix a memory leak in g_irepository_get_object_gtype_interfaces() :mr:`182` (:user:`Philip Chimento <ptomato>`)
+* ccompiler.py: Fix macro defines with quotes on MSVC :mr:`183` (:user:`Chun-wei Fan <fanc999>`)
+* tests: Actually test libregress by specifying the LD_LIBRARY_PATH :mr:`174` (:user:`Corentin Noël <tintou>`)
+* examples: Make self contained and add build system integration examples :mr:`189`
+* autotools: Make INTROSPECTION_GIRDIR/INTROSPECTION_TYPELIBDIR respect prefix/datadir/libdir :mr:`190`
+* girepository: Also store GType cache misses :mr:`191` (:user:`Carlos Garnacho <carlosg>`)
+* docs: Document GI_CROSS_LAUNCHER envvar :mr:`175` (:user:`Emmanuele Bassi <ebassi>`)
+
+
+1.62.0 - 2019-09-09
+-------------------
+
+* No changes since 1.61.2
+
+
+1.61.2 - 2019-08-17
+-------------------
+
+* dumper: Use the distutils linker :mr:`170` (:user:`David Demelier <markand>`)
+* structinfo: Fix offset in find_method() :mr:`171` (:user:`Florian Müllner <fmuellner>`)
+* tests: Don't include "config.h" in installed files :mr:`172` (:user:`Philip Chimento <ptomato>`)
+* meson: Make meson.override_find_program working on more complex use cases :mr:`173` (:user:`Thibault Saunier <thiblahute>`)
+
+
+1.61.1 - 2019-08-07
+-------------------
+
+* Drop autotools build system :mr:`143`
+* meson: require 0.49.2
+* Update glib annotations (:user:`Rico Tzschichholz <ricotz>`)
+* Add documentation to the RelaxNG schema :mr:`139` (:user:`David Bellot <yimyom>`)
+* Unused variable fixes :mr:`147` (:user:`Philip Chimento <ptomato>`)
+* cachestore: handle cache getting deleted while loading it :mr:`148`
+* Visual Studio builds: Use msvc_recommended_pragmas.h from GLib :mr:`150` (:user:`Chun-wei Fan <fanc999>`)
+* Add Vulkan gir :mr:`155` (:user:`Matthew Waters <ystreet00>`)
+* Make g_irepository_get_object_gtype_interfaces actually work :mr:`157` (:user:`Philip Chimento <ptomato>`)
+* gimarshallingtests: Add a marshalling test case for GPtrArrays and GArrays of structures :mr:`160` (:user:`Stéphane Seng <stephaneseng>`)
+* scanner: parse and expose function macros :mr:`159` (:user:`Mathieu Duponchelle <mathieudu>`)
+* meson: use pkg-config directly for libffi cflags and libs :mr:`162` (:user:`Aaron Boxer <boxerab>`)
+* meson: Fix wrong dependency type check for gio-unix :issue:`166` (:user:`Brook Milligan <brook-milligan>`)
+* regress: Add regression test for signal with GError param :mr:`169` (:user:`Philip Chimento <ptomato>`)
+
+
+1.60.2 - 2019-06-15
+-------------------
+
+* docwriter: Fix Exception message attribute :mr:`146` (:user:`Philip Chimento <ptomato>`)
+* meson: fix default cairo DLL name on Windows
+* scanner: Fix error on Windows in case source files are on different drives
+* gi-test: Fix gir file tests with MSVC :mr:`151` (:user:`Chun-wei Fan <fanc999>`)
+* MSVC.README.rst: Update VS 2008/x64 build notes :mr:`152` (:user:`Chun-wei Fan <fanc999>`)
+* giscanner/scannerlexer.l: Include io.h on Windows (:user:`Chun-wei Fan <fanc999>`)
+* build: Force-include msvc_recommended_pragmas.h on Visual Studio :mr:`152` (:user:`Chun-wei Fan <fanc999>`)
+* Update glib annotations (2.60.4)
+
+
+1.60.1 - 2019-04-07
+-------------------
+
+* Update glib annotations (glib-2-60)
+* shlibs: fall back to basename on macOS for relative paths :issue:`222`
+* meson: always pass --quiet to g-ir-scanner
+* docs: include '--c-include' in g-ir-scanner man page :issue:`275`
+* tests: Fix compatibility with Python 3.5 :issue:`274` (:user:`Tomasz Miąsko <tmiasko>`)
+
+
+1.60.0 - 2019-03-10
+-------------------
+
+NOTE: This is the last release supporting autotools. Please try building with
+meson instead and report any problems. This does not affect projects using
+autotools + g-i, only the build of g-i itself.
+
+* gir: Update glib annotations :mr:`142` :mr:`141` (:user:`Andrea Azzarone <azzaronea>`)
+
+
+1.59.5 - 2019-03-04
+-------------------
+
+* gir: Include C header in cairo gir file :mr:`138` (:user:`Tomasz Miąsko <tmiasko>`)
+* ccompiler: restore customize_compiler() setup for macOS. :issue:`268`
+* gir: skip glib-enumtypes.h for GObject-2.0 :mr:`140`
+
+
+1.59.4 - 2019-02-04
+-------------------
+
+* tests: Add functions using flat struct arrays. :mr:`130` (:user:`Tomasz Miąsko <tmiasko>`)
+* Clean shebangs out of non-executable scripts and drop exec perm from xmlwriter.py. :mr:`131` (:user:`Dominique Leuenberger <DimStar77>`)
+* maintransformer: parse deprecation annotations for section blocks. :issue:`213` :mr:`132`
+* repository: g_irepository_get_object_gtype_interfaces. :mr:`30` (:user:`Colin Walters <walters>`, :user:`Philip Chimento <ptomato>`)
+* message: handle fatal errors even if warnings are disabled. :issue:`229` :mr:`126`
+* autotools: Fix build with ``-Wl,--as-needed``. :issue:`226` :mr:`134`
+* maintransformer: Don't warn on (optional) annotations on (inout) :mr:`135` (:user:`Guido Günther <guidog>`)
+* girepository: Fix a possible use-after-free if g_mapped_file_new() fails
+  and fix possible leak of transitive dependency names. :mr:`136` (:user:`Elliott Sales de Andrade <QuLogic>`)
+
+
+1.59.3 - 2019-01-08
+-------------------
+
+* meson: use underscore as a separator in build options (gtk-doc -> gtk_doc etc)
+  :mr:`129`
+* website: add cppgir C++ binding
+  :mr:`124` (:user:`Mark Nauwelaerts <mnauw>`)
+* scanner: Merge specifiers and qualifiers when merging basic types.
+  Fixes "unsigned char" being wrongly parsed as "unsigned" etc.
+  :mr:`125` (:user:`Tomasz Miąsko <tmiasko>`)
+* meson: warn that not all tests will be run if building without cairo/doctool
+* scanner: rework source root directory guessing code to not depend on the
+  build directory
+* scanner: Remove incorrect c:type generated for array of synthesized unions
+  :mr:`127` (:user:`Tomasz Miąsko <tmiasko>`)
+* scanner: Flatten multi-dimensional arrays fields
+  :mr:`128` (:user:`Tomasz Miąsko <tmiasko>`)
+
+
+1.59.2 - 2019-01-04
+-------------------
+
+* Everything included in 1.58.3
+* meson: Various fixes and all tests have been ported (0.47+ is required now)
+  :mr:`114` :mr:`110` etc.
+  (:user:`Tomasz Miąsko <tmiasko>`, :user:`Emmanuele Bassi <ebassi>`,
+  :user:`Christoph Reiter <creiter>`)
+* scanner: Save preprocessor input and output files with ``save-temps``
+  :mr:`107` (:user:`Tomasz Miąsko <tmiasko>`)
+* automake: Use the wildcard function where needed
+  :mr:`100` (:user:`William Hua <williamhua>`)
+* build: extend ``PYTHONPATH`` instead of replacing it :mr:`101`
+* gir/cairo: add ``cairo_rectangle_t`` :issue:`74` :mr:`103` (Yeti)
+* Add a ``--version`` option to g-ir-compiler and g-ir-generate
+  :issue:`55` :mr:`106`
+* tests: various test improvements
+  :mr:`111` :mr:`117` :mr:`119` (:user:`Tomasz Miąsko <tmiasko>`)
+* ccompiler: don't use Python compiler flags
+  :issue:`150` :mr:`118` :mr:`120`
+  (:user:`Tomasz Miąsko <tmiasko>`, :user:`Christoph Reiter <creiter>`)
+* parser: Do not bail out when parsing GIR files without doc positions
+  :mr:`121` (:user:`Emmanuele Bassi <ebassi>`)
+* gimarshallingtests: Remove declarations of nonexistent functions
+  :mr:`123` (:user:`Philip Chimento <ptomato>`)
+
+
 1.58.3 - 2018-12-30
 -------------------
 
-* docwriter: Support python-markdown 3.x. issue#250
-* scanner:  Define grefcount and gatomicrefcount as aliases to gint. issue#254
-  (Tomasz Miąsko <tomasz.miasko@gmail.com>)
-* scanner: make using bool without stdbool include work again. issue#247
+* docwriter: Support python-markdown 3.x
+  :issue:`250`
+* scanner:  Define grefcount and gatomicrefcount as aliases to gint
+  :issue:`254` (:user:`Tomasz Miąsko <tmiasko>`)
+* scanner: make using bool without stdbool include work again
+  :issue:`247`
 * gir: Update glib annotations for glib 2.58.2
 
 
-2.58.2 - 2018-12-09
+1.59.1 - 2018-12-16
+-------------------
+
+* Everything included in 1.58.2
+* build: Drop Python 2 support, require Python 3.4+ :mr:`69`
+* build: Add option to make .gir files installation paths configurable
+  :mr:`63` (:user:`Kai Kang <kai.7.kang>`)
+* build: Skip gobject/gvaluecollector.h when constructing GObject GIR
+  :mr:`20` (:user:`Tomasz Miąsko <tmiasko>`)
+* build: Port various tests to work with meson
+  :mr:`92` :mr:`94` :mr:`95` (:user:`Tomasz Miąsko <tmiasko>`)
+* regress: Add test for write-only property
+  :mr:`67` (:user:`Philip Chimento <ptomato>`)
+* regress: Implement interface and override properties
+  :mr:`59` (:user:`Philip Chimento <ptomato>`)
+* writer: Include documentation and symbol position in source files
+  :mr:`75` (:user:`Thibault Saunier <thiblahute>`)
+* giscanner: Print relative filename paths when warning
+  :mr:`74` (:user:`Jonas Ådahl <jadahl>`)
+* giscanner: Define grefcount and gatomicrefcount as aliases to gint
+  :mr:`76` (:user:`Tomasz Miąsko <tmiasko>`)
+* giscanner: Allow empty declarations. Fixes warnings with mingw headers.
+  :issue:`216` :mr:`89` (:user:`Christoph Reiter <creiter>`)
+* giscanner: Replace linked lists with arrays in source scanner
+  :mr:`90` (:user:`Tomasz Miąsko <tmiasko>`)
+* girepository: Various docs cleanups and fixes
+  :mr:`96` :mr:`97` :issue:`66` (:user:`Tomasz Miąsko <tmiasko>`,
+  :user:`Christoph Reiter <creiter>`, Jasper St. Pierre)
+* girepository: Don't abort when calling g_base_info_get_name() on a GITypeInfo
+  :issue:`96` :mr:`99` (:user:`Christoph Reiter <creiter>`)
+* girepository: Add version macros and functions
+  :issue:`200` :mr:`98` (:user:`Christoph Reiter <creiter>`)
+
+
+1.58.2 - 2018-12-09
 -------------------
 
 * meson: Fix random build errors (mostly MSVC)
-  (Tomasz Miąsko <tomasz.miasko@gmail.com>)
+  :mr:`88` (:user:`Tomasz Miąsko <tmiasko>`)
 * scanner: Fix parsing of __typeof__ that is part of a cast expression
-  (Tomasz Miąsko <tomasz.miasko@gmail.com>)
+  :mr:`78` (:user:`Tomasz Miąsko <tmiasko>`)
 * scanner: Ignore __pragma keyword used by MSVC
-  (Tomasz Miąsko <tomasz.miasko@gmail.com>)
+  :mr:`87` (:user:`Tomasz Miąsko <tmiasko>`)
 
 
-2.58.1 - 2018-11-17
+1.58.1 - 2018-11-17
 -------------------
 
-* meson: Install warnlib mr#62 (Jan Tojnar <jtojnar@gmail.com>)
+* meson: Install warnlib :mr:`62` (:user:`Jan Tojnar <jtojnar>`)
 * scanner: Parse __typeof__ and discard it
-  mr#71 (Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>)
+  :mr:`71` (:user:`Jan Alexander Steffens <heftig>`)
 * meson: add back /usr/bin/env to the python-cmd
-  issue#237 mr#70 (Havard Graff <havard@pexip.com>)
+  :issue:`237` :mr:`70` (:user:`Håvard Graff <hgr>`)
 * Fix non libtool build
-  mr#72 (Olivier Crête <olivier.crete@collabora.com>)
+  :mr:`72` (:user:`Olivier Crête <ocrete>`)
 
 
-=== 2.58 ======================================================================
+1.58.0 - 2018-08-31
+-------------------
+
+::
 
     • Changes:
       - Update annotations imported from GLib, and require GLib 2.58
@@ -67,7 +320,10 @@
       Philip Chimento, Tom Schoonjans, Christoph Reiter, Ray Donnelly,
       Marcus Calhoun-Lopez, Florian Müllner, Evan Welsh, Mathieu Duponchelle
 
-=== 2.56 ======================================================================
+1.56 - 2018-03-13
+-----------------
+
+::
 
     • Changes:
       - Add _Float128 to the base C types
@@ -100,222 +356,6 @@
       Nicola Fontana, Tomasz Miąsko, Emmanuele Bassi, Philip Chimento,
       Karl-Philipp Richter
 
----
-For older releases, see the Git log
----
-0.6.3 22-jun 2009
-    Bugs resolved:
-      - 551738 Association needed between records and classes/interfaces
-      - 555960 Nested structs and unions
-      - 555964 float #defined constants are ignored
-      - 556475 support Shadows: annotation
-      - 561360 do not fail for not-found GTypes
-      - 561604 g-ir-compiler fails on gvariant
-      - 563469 Arrays not treated correctly in struct offset calculation
-      - 563682 Fails to build on Hurd/i386 because of undefined PATH_MAX
-      - 564016 add nsprefix to gir and typelib
-      - 566560 giscanner.transformer.SkipError
-      - 567906 put pkg-config name in gir, use them by default in scanner
-      - 568680 Scanner misses fields (at least in GObject.Object)
-      - 569355 warning fixes
-      - 569633 [PATCH] Typelib compiler fails with vararg callbacks.
-      - 569930 g_registered_type_info_get_g_type does not handle GObject
-      - 570594 everything you know about C syntax is wrong
-      - 570903 Add information about -I flag to scanner manpage.
-      - 571182 introspection.m4 issues
-      - 571248 [patch] ignore unknown elements in gir parser
-      - 571483 .gir should be sorted
-      - 571548 generic typelib attributes
-      - 571649 Rename Soup-2.0.gir to Soup-2.4.gir
-      - 572075 Make the scanner work with static and convenience libraries
-      - 572086 Parse doc-comment tags case-insensitive
-      - 572423 Add c:header-filename or c:header-filenames where appropr...
-      - 572434 Have glib:is-iface-struct-for attribute on *Iface structs
-      - 572563 build failure in tests/everything
-      - 572790 #defines should be parsed in .h files but not .c files
-      - 572965 Allow generic marshaller to be called without parameters
-      - 573306 Relax callback grouping detection rules
-      - 573309 Adding an "--all" parameter to g-ir-generate
-      - 573332 Allow annotation of enums as bitfields
-      - 574139 There is no way to identify 'user_data' arguments in the ...
-      - 574284 Add support for a 'closure' and 'destroy' annotations
-      - 574501 build script looks for site-packages instead of dist-pack...
-      - 575613 incorrect enum stripping
-      - 576323 g-ir-compiler fails with constant in classes
-      - 576605 Get rid of GI_SCOPE_TYPE_OBJECT
-      - 576627 gir-repository: WebKit needs to include Soup-2.4
-      - 577065 Fix 'Could not find GIR file ...' error to use right file...
-      - 577534 use rename() to write out typelibs
-      - 577546 Missing annotations for GLib, GObject and Gio
-      - 579522 gobject-introspection fails to build when missing libsoup...
-      - 579602 Annotation fixes for gdk, gdkpixbuf, gtk and notify
-      - 581680 Leftover bogus text in g-object-introspection documentation
-      - 581681 Allow the use of the "Rename To" annotation for literal m...
-      - 581682 Improve "Everything" test library
-      - 581684 Minor doc comment fix
-      - 581685 Allow nested parameterized types for GList, GSList, and G...
-      - 581689 Better handle classes with non-standard to_underscore names.
-      - 583338 GIR annotations: gtk_init can take a null argv
-      - 584423 Add short/ushort support
-      - 584432 g-ir-compiler fails to find gir files installed by gobjec...
-      - 584453 Default annotations value for const gchar* const *
-      - 584816 Add GLclampf to the GL GIR
-      - 584842 Add an Everything-1.0-expected.gir, test Everything versu...
-      - 585081 libgirepository-everything is not linked against libglib,...
-      - 585141 Incomplete gir generation for GdkPixbuf, Atk, Poppler
-      - 585150 XPATH_TESTS are not run
-      - 585328 g_type_info_is_zero_terminated returns TRUE unless (array...
-      - 585373 Add annotations for g_spawn_* functions.
-      - 585579 g-o-i: 'make check' doesn't check Everything-1.0-expected...
-      - 585584 Fix warnings in girparser.c and compiler.c
-      - 585908 make distcheck fails
-    Contributors:
-    C. Scott Ananian, Emmanuele Bassi, Johan Bilien, Robert Carr,
-    Johan Dahlin, Holger Hans Peter Freyther, Marco Pesenti Gritti,
-    David Ignacio, Mark Lee, Simon van der Linden, Xan Lopez,
-    Didier 'Ptitjes, Chris Rivera, Andreas Rottmann, Owen W. Taylor,
-    Colin Walters, Dan Winship, Tomeu Vizoso and Marina Zhurakhinskaya
+.. note::
 
-
-0.6.2 21-jan-2009
-    Bugs resolved:
-    - Bug 562622 – Errordomains missing
-    - Bug 562615 – Struct methods missing
-    - Bug 567813 – Everything should be versioned
-    - Bug 555036 – put gtk-doc in GIR
-    - Bug 562467 – Property annotation
-    - Bug 546739 – Introspection should know precise signal parameter types
-    - Bug 563591 – Flags not recognized when there is no introspection data
-    - Bug 563386 – scanner ignores "const" on boxed return values
-    - Bug 566404 – Annotations for GLib
-    - Bug 566419 – Element type of arrays not properly handled in all cases
-    - Bug 566560 – giscanner.transformer.SkipError
-    - Bug 563794 - Redo annotation parsing & applying
-    - Bug 563469 – Arrays not treated correctly in struct offset calculation
-    - Bug 556489 – callback annotations
-    - Bug 563998 – Cache the GIBaseInfo for GTypes
-    - Bug 562545 – Add function taking / returning GValue
-    - Bug 563742 – introspection should record the introduced version of
-    - Bug 562971 – g-ir-scanner failure on libgpod headers
-    - Bug 562289 – Race when removing invalid cache
-    - Bug 559705 – Missing association between static methods and classes
-    - Bug 562022 – gobject-introspection needs python headers
-    - Bug 561617 – Return value array annotations
-    - Bug 561296 - Add "storage type" to the typelib data for enums
-    - Bug 559706 - Interface prerequisites
-    - Bug 561087 - Respect is_pointer in serialize_type()
-    - Bug 560825 – Add size and alignment to typelib
-    Contributors:
-    Johan Bilien, Jürg Billeter, Johan Dahlin, Christophe Fergeau
-    Havoc Pennington, Andreas Rottmann, Owen Taylor, Tristan Van Berkom
-    Colin Walters, Dan Winship
-
-0.6.1 25-nov-2008
-    Bugs resolved:
-    - Bug 552371 - implement struct field get/set
-    - Bug 552568 - All the argv parameters in Gtk.gir map char*** to int8
-    - Bug 557468 - Support for GI_TYPELIB_PATH
-    - Bug 557788 - Return types for constructors in generated typelib bogus
-    - Bug 557898 - Fails to build on OSX 10.4
-    - Bug 558436 - avoid having scanner load app code
-    - Bug 558848 - girparser.py: shared-library should be optional
-    - Bug 558849 - girepository: extend X stubbing
-    - Bug 559601 - Pointers in structs/unions unduly treated as arrays
-    - Bug 559703 - Virtual functions miss throws attribute in .gir
-    - Bug 559706 - Interface prerequisites missing
-    - Bug 559736 - Show the right filename in error messages
-    - Bug 559737 - Deal with continuations in macros
-    - Bug 560241 - Out-arguments should not be marked as being pointers in a...
-    - Bug 560248 - "disguised structures"
-    - Bug 560250 - [PATCH] Fully parse included modules
-    - Bug 560251 - [PATCH] Split g_ir_ffi_get_ffi_type() out from ginvoke.c
-    - Bug 560252 - Compute field offsets before writing typelib
-    - Bug 560253 - [PATCH] Add struture and boxed types to Everything test m...
-    - Bug 560308 - g-ir-compiler goes in infinite loop on Gdk-2.0.gir
-    - Bug 560326 - Fails to build Gtk-2.0.typelib with "Unexpected non-point...
-    - Bug 560346 - Fix and install pkgconfig file
-    - Bug 560404 - Prefix types when resolving aliases in included modules
-    - Bug 560419 - Cache includes when parsing
-    - Bug 560474 - g-ir-compiler crashes when compiling the glib gir
-    - Bug 560708 - Don't treat arrays that have a length specified as zero-t...
-    - Bug 560825 - Add size and alignment to typelib
-    - Bug 561087 - Respect is_pointer in serialize_type()
-    - Bug 561135 - hashtable element-type annotations broken
-    - Bug 561137 - support multiple repos for GBaseInfo
-    - Bug 561296 - Add "storage type" to the typelib data for enums
-    - Bug 561568 - Add Gio Unix bits to the Gio.gir if available
-    - Bug 561570 - Add TestObj with static methods
-    - Bug 561617 - Return value array annotations
-    - Bug 562022 - gobject-introspection needs python headers
-    - Bug 562030 - gir repository fails to build DBus-1.0.typelib without db...
-    - Bug 562031 - gir repository fails to libxml2 typelib without libxml2 i... 
-    Contributors: Étienne Bersac, Johan Bilien, Jürg Billeter, Johan Dahlin,
-      Tommi Komulainen, Tom Parker, Lucas Rocha, Andreas Rottmann
-      Colin Walters, Dan Winship, Owen Taylor
-
-0.6.0 31-oct-2008
-    Bugs resolved:
-    - Bug 551162 - giscanner does not recognize asm and __asm__
-    - Bug 551737 - Fix strip_namespace_func to only strip prefix...
-    - Bug 551744 - Non-GObject types aren't aggregating ctors and methods
-    - Bug 552065 - Add deprecation annotation
-    - Bug 552347 - Parse #defines constants
-    - Bug 552370 - add one more test for unsigned as a type, not as a type qualifier
-    - Bug 552370 - unsigned not scanned properly
-    - Bug 552374 - Const strings should be identified in the gir
-    - Bug 552380 - Array parameters should be marked in the gir
-    - Bug 552384 - Use SHLIB_SUFFIX intead of G_MODULE_SUFFIX for Darwin
-    - Bug 552390 - Handle capitialization like "DBus" more robustly
-    - Bug 552393 - Note variadic functions
-    - Bug 552566 - Add time_t type 
-    - Bug 552858 - versioning
-    - Bug 554490 - g-ir-scanner gets confused by '\\'
-    - Bug 554521 - scanner generates wrong names for enum members with...
-    - Bug 554576 - scan problem with ev_selection_render_selection()
-    - Bug 554632 - type tag for GType
-    - Bug 554854 - The --typelib-xml and --inject options should reuse giscanner ...
-    - Bug 555293 - append library_paths to LPATH env variable to workaround a...
-    - Bug 555294 - Add support for multiple shared libraries per typelib.
-    - Bug 555712 - Struct and union issues
-    - Bug 555946 - Install a test module exercising all types, transfer rules, etc
-    - Bug 556048 – Crash in g_irepository_find_by_gtype
-    - Bug 556174 – parse types for lists etc
-    - Bug 556185 - segfault on g_callable_info_get_return_type
-    - Bug 556323 – transfer-ownership is wrong for functions returning const char *
-    - Bug 556331 - clean up includes handling
-    - Bug 556358 - don't use libtool internals
-    - Bug 556400 – Fails to build on OS X 10.4
-    - Bug 556432 - transfer annotations and defaults
-    - Bug 556433 – assume direction = out for int * parameters
-    - Bug 556434 – unhandled interface/object/... member types
-    - Bug 556541 – access union members through UnionBlob rather than StructBlob
-    - Bug 556543 – reduce compiler warnings
-    - Bug 556579 - union and struct name misresolved
-    - Bug 556610 – giscanner/girparser.py drops parameter options
-    - Bug 556732 – generate gir files consistently
-    - Bug 556739 - transfer ownership
-    - Bug 556777 - validate properties
-    - Bug 556783 - change namespace handling to be more consistent
-    - Bug 556795 - char ** regression
-    - Bug 557076 - move typelibs to $libdir
-    - Bug 557092 – Callback annotations not used
-    - Bug 557241 – "throws" flag for functions
-    - Bug 557377 – Add test to ensure annotations survive the roundtrip via typelib
-    - Bug 557379 – g-ir-generate not writing the 'abstract' attribute
-    - Bug 557405 – Use 'allow-none' consistently
-    - Bug 557468 – Support for GI_TYPELIB_PATH
-    - Bug 557623 - Constructors shouldn't be flagged as methods
-    - Bug 557786 - support fixed size arrays
-    - Bug 557788 – Return types for constructors in generated typelib bogus
-    - Bug 557791 – g_irepository_require() could return a GTypelib *
-    - Bug 558062 – provide and use paths in the .pc file
-    - Bug 558065 – gitesttypes should be installed
-    - Bug 558068 – when invoking a method, offset the in arguments by one, not the out
-    - Bug 558109 – _g_typelib_init fails to find shared libraries
-    - Bug 558383 – builddir != srcdir build fails if giscanner python module not already installed
-    Contributors: Johan Bilien, Jürg Billeter, Johan Dahlin, John Ehresman,
-      Tommi Komulainen, Jani Monoses, Lucas Rocha, Andreas Rottmann
-      Colin Walters, Dan Winship, Owen Taylor
-
-0.5.0 01-sep-2008
-    - First public release
+    For older releases, see the Git log

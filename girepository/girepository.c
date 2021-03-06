@@ -58,12 +58,30 @@
 static GIRepository *default_repository = NULL;
 static GSList *typelib_search_path = NULL;
 
+typedef struct {
+  guint n_interfaces;
+  GIBaseInfo *interfaces[];
+} GTypeInterfaceCache;
+
+static void
+gtype_interface_cache_free (gpointer data)
+{
+  GTypeInterfaceCache *cache = data;
+  guint i;
+
+  for (i = 0; i < cache->n_interfaces; i++)
+    g_base_info_unref ((GIBaseInfo*) cache->interfaces[i]);
+  g_free (cache);
+}
+
 struct _GIRepositoryPrivate
 {
   GHashTable *typelibs; /* (string) namespace -> GITypelib */
   GHashTable *lazy_typelibs; /* (string) namespace-version -> GITypelib */
   GHashTable *info_by_gtype; /* GType -> GIBaseInfo */
   GHashTable *info_by_error_domain; /* GQuark -> GIBaseInfo */
+  GHashTable *interfaces_for_gtype; /* GType -> GTypeInterfaceCache */
+  GHashTable *unknown_gtypes; /* hashset of GType */
 };
 
 G_DEFINE_TYPE_WITH_CODE (GIRepository, g_irepository, G_TYPE_OBJECT, G_ADD_PRIVATE (GIRepository));
@@ -75,6 +93,8 @@ G_DEFINE_TYPE_WITH_CODE (GIRepository, g_irepository, G_TYPE_OBJECT, G_ADD_PRIVA
 static HMODULE girepository_dll = NULL;
 
 #ifdef DLL_EXPORT
+
+BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 
 BOOL WINAPI
 DllMain (HINSTANCE hinstDLL,
@@ -121,6 +141,11 @@ g_irepository_init (GIRepository *repository)
     = g_hash_table_new_full (g_direct_hash, g_direct_equal,
                              (GDestroyNotify) NULL,
                              (GDestroyNotify) g_base_info_unref);
+  repository->priv->interfaces_for_gtype
+    = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+                             (GDestroyNotify) NULL,
+                             (GDestroyNotify) gtype_interface_cache_free);
+  repository->priv->unknown_gtypes = g_hash_table_new (NULL, NULL);
 }
 
 static void
@@ -132,6 +157,8 @@ g_irepository_finalize (GObject *object)
   g_hash_table_destroy (repository->priv->lazy_typelibs);
   g_hash_table_destroy (repository->priv->info_by_gtype);
   g_hash_table_destroy (repository->priv->info_by_error_domain);
+  g_hash_table_destroy (repository->priv->interfaces_for_gtype);
+  g_hash_table_destroy (repository->priv->unknown_gtypes);
 
   (* G_OBJECT_CLASS (g_irepository_parent_class)->finalize) (G_OBJECT (repository));
 }
@@ -220,7 +247,7 @@ g_irepository_prepend_search_path (const char *directory)
  * g_irepository_get_search_path:
  *
  * Returns the current search path #GIRepository will use when loading
- * typelib files. The list is internal to #GIRespository and should not
+ * typelib files. The list is internal to #GIRepository and should not
  * be freed, nor should its string elements.
  *
  * Returns: (element-type filename) (transfer none): #GSList of strings
@@ -415,6 +442,9 @@ register_internal (GIRepository *repository,
       g_hash_table_insert (repository->priv->typelibs, key, (void *)typelib);
     }
 
+  /* These types might be resolved now, clear the cache */
+  g_hash_table_remove_all (repository->priv->unknown_gtypes);
+
   return namespace;
 }
 
@@ -538,7 +568,8 @@ g_irepository_get_dependencies (GIRepository *repository,
   g_return_val_if_fail (typelib != NULL, NULL);
 
   /* Load the dependencies. */
-  transitive_dependencies = g_hash_table_new (g_str_hash, g_str_equal);
+  transitive_dependencies = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                   g_free, NULL);
   get_typelib_dependencies_transitive (repository, typelib,
                                        transitive_dependencies);
 
@@ -789,6 +820,9 @@ g_irepository_find_by_gtype (GIRepository *repository,
   if (cached != NULL)
     return g_base_info_ref (cached);
 
+  if (g_hash_table_contains (repository->priv->unknown_gtypes, (gpointer)gtype))
+    return NULL;
+
   data.gtype_name = g_type_name (gtype);
   data.result_typelib = NULL;
 
@@ -824,7 +858,11 @@ g_irepository_find_by_gtype (GIRepository *repository,
 			   g_base_info_ref (cached));
       return cached;
     }
-  return NULL;
+  else
+    {
+      g_hash_table_add (repository->priv->unknown_gtypes, (gpointer) gtype);
+      return NULL;
+    }
 }
 
 /**
@@ -900,7 +938,7 @@ find_by_error_domain_foreach (gpointer key,
  *
  * Returns: (transfer full): #GIEnumInfo representing metadata about @domain's
  * enum type, or %NULL
- * Since: 1.29.17
+ * Since: 1.30
  */
 GIEnumInfo *
 g_irepository_find_by_error_domain (GIRepository *repository,
@@ -938,6 +976,85 @@ g_irepository_find_by_error_domain (GIRepository *repository,
       return cached;
     }
   return NULL;
+}
+
+/**
+ * g_irepository_get_object_gtype_interfaces:
+ * @repository: (nullable): a #GIRepository, or %NULL for the default repository
+ * @gtype: a #GType whose fundamental type is G_TYPE_OBJECT
+ * @n_interfaces_out: (out): Number of interfaces
+ * @interfaces_out: (out) (transfer none) (array length=n_interfaces_out): Interfaces for @gtype
+ *
+ * Look up the implemented interfaces for @gtype.  This function
+ * cannot fail per se; but for a totally "unknown" #GType, it may
+ * return 0 implemented interfaces.
+ *
+ * The semantics of this function are designed for a dynamic binding,
+ * where in certain cases (such as a function which returns an
+ * interface which may have "hidden" implementation classes), not all
+ * data may be statically known, and will have to be determined from
+ * the #GType of the object.  An example is g_file_new_for_path()
+ * returning a concrete class of #GLocalFile, which is a #GType we
+ * see at runtime, but not statically.
+ *
+ * Since: 1.62
+ */
+void
+g_irepository_get_object_gtype_interfaces (GIRepository      *repository,
+                                           GType              gtype,
+                                           guint             *n_interfaces_out,
+                                           GIInterfaceInfo ***interfaces_out)
+{
+  GTypeInterfaceCache *cache;
+
+  g_return_if_fail (g_type_fundamental (gtype) == G_TYPE_OBJECT);
+
+  repository = get_repository (repository);
+
+  cache = g_hash_table_lookup (repository->priv->interfaces_for_gtype,
+                               (gpointer) gtype);
+  if (cache == NULL)
+    {
+      GType *interfaces;
+      guint n_interfaces;
+      guint i;
+      GList *interface_infos = NULL, *iter;
+
+      interfaces = g_type_interfaces (gtype, &n_interfaces);
+      for (i = 0; i < n_interfaces; i++)
+        {
+          GIBaseInfo *base_info;
+
+          base_info = g_irepository_find_by_gtype (repository, interfaces[i]);
+          if (base_info == NULL)
+            continue;
+
+          if (g_base_info_get_type (base_info) != GI_INFO_TYPE_INTERFACE)
+            {
+              /* FIXME - could this really happen? */
+              g_base_info_unref (base_info);
+              continue;
+            }
+
+          if (!g_list_find (interface_infos, base_info))
+            interface_infos = g_list_prepend (interface_infos, base_info);
+        }
+
+      cache = g_malloc (sizeof (GTypeInterfaceCache)
+                        + sizeof (GIBaseInfo*) * g_list_length (interface_infos));
+      cache->n_interfaces = g_list_length (interface_infos);
+      for (iter = interface_infos, i = 0; iter; iter = iter->next, i++)
+        cache->interfaces[i] = iter->data;
+      g_list_free (interface_infos);
+
+      g_hash_table_insert (repository->priv->interfaces_for_gtype, (gpointer) gtype,
+                           cache);
+
+      g_free (interfaces);
+    }
+
+  *n_interfaces_out = cache->n_interfaces;
+  *interfaces_out = (GIInterfaceInfo**)&cache->interfaces[0];
 }
 
 static void
@@ -1027,7 +1144,7 @@ g_irepository_get_version (GIRepository *repository,
  * Note: The namespace must have already been loaded using a function
  * such as g_irepository_require() before calling this function.
  *
- * Returns: Comma-separated list of paths to shared libraries,
+ * Returns: (nullable): Comma-separated list of paths to shared libraries,
  *   or %NULL if none are associated
  */
 const gchar *
@@ -1303,7 +1420,6 @@ enumerate_namespace_versions (const gchar *namespace,
 	      g_free (version);
 	      continue;
 	    }
-	  g_hash_table_insert (found_versions, version, version);
 
 	  path = g_build_filename (dirname, entry, NULL);
 	  mfile = g_mapped_file_new (path, FALSE, &error);
@@ -1320,6 +1436,7 @@ enumerate_namespace_versions (const gchar *namespace,
 	  candidate->path = path;
 	  candidate->version = version;
 	  candidates = g_slist_prepend (candidates, candidate);
+	  g_hash_table_add (found_versions, version);
 	}
       g_dir_close (dir);
       index++;

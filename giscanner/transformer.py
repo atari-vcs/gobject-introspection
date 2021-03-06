@@ -18,11 +18,6 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 import subprocess
@@ -36,7 +31,7 @@ from .sourcescanner import (
     SourceSymbol, ctype_name, CTYPE_POINTER,
     CTYPE_BASIC_TYPE, CTYPE_UNION, CTYPE_ARRAY, CTYPE_TYPEDEF,
     CTYPE_VOID, CTYPE_ENUM, CTYPE_FUNCTION, CTYPE_STRUCT,
-    CSYMBOL_TYPE_FUNCTION, CSYMBOL_TYPE_TYPEDEF, CSYMBOL_TYPE_STRUCT,
+    CSYMBOL_TYPE_FUNCTION, CSYMBOL_TYPE_FUNCTION_MACRO, CSYMBOL_TYPE_TYPEDEF, CSYMBOL_TYPE_STRUCT,
     CSYMBOL_TYPE_ENUM, CSYMBOL_TYPE_UNION, CSYMBOL_TYPE_OBJECT,
     CSYMBOL_TYPE_MEMBER, CSYMBOL_TYPE_ELLIPSIS, CSYMBOL_TYPE_CONST,
     TYPE_QUALIFIER_CONST, TYPE_QUALIFIER_VOLATILE)
@@ -82,7 +77,11 @@ class Transformer(object):
         # handle #ifdef.  But this introduces an arch-dependency in the .gir
         # file.  So far this has only come up scanning glib - in theory, other
         # modules will just depend on that.
-        if isinstance(original, ast.Constant) and isinstance(node, ast.Constant):
+        if original and\
+                (isinstance(original, ast.FunctionMacro) or isinstance(node,
+                    ast.FunctionMacro)):
+            pass
+        elif isinstance(original, ast.Constant) and isinstance(node, ast.Constant):
             pass
         elif original is node:
             # Ignore attempts to add the same node to the namespace. This can
@@ -191,9 +190,9 @@ None."""
 
     def _find_include(self, include):
         searchdirs = self._includepaths[:]
+        searchdirs.extend(GIRDIR)
         for path in self._get_gi_data_dirs():
             searchdirs.append(os.path.join(path, 'gir-1.0'))
-        searchdirs.append(os.path.join(DATADIR, 'gir-1.0'))
 
         girname = '%s-%s.gir' % (include.name, include.version)
         for d in searchdirs:
@@ -372,6 +371,8 @@ raise ValueError."""
             stype = symbol.type
         if stype == CSYMBOL_TYPE_FUNCTION:
             return self._create_function(symbol)
+        elif stype == CSYMBOL_TYPE_FUNCTION_MACRO:
+            return self._create_function_macro(symbol)
         elif stype == CSYMBOL_TYPE_TYPEDEF:
             return self._create_typedef(symbol)
         elif stype == CSYMBOL_TYPE_STRUCT:
@@ -454,6 +455,19 @@ raise ValueError."""
         func.add_symbol_reference(symbol)
         return func
 
+    def _create_function_macro(self, symbol):
+        if symbol.ident.startswith('_'):
+            return None
+
+        if (symbol.source_filename is None or not symbol.source_filename.endswith('.h')):
+            return None
+
+        parameters = list(self._create_parameters(symbol, symbol.base_type))
+        name = self._strip_symbol(symbol)
+        macro = ast.FunctionMacro(name, parameters, symbol.ident)
+        macro.add_symbol_reference(symbol)
+        return macro
+
     def _create_source_type(self, source_type, is_parameter=False):
         assert source_type is not None
         if source_type.type == CTYPE_VOID:
@@ -488,8 +502,6 @@ raise ValueError."""
                                   CTYPE_UNION,
                                   CTYPE_ENUM]:
             value = source_type.name
-            if not value:
-                value = 'gpointer'
             if const:
                 value = 'const ' + value
             if volatile:
@@ -557,36 +569,32 @@ raise ValueError."""
             # Special handling for fields; we don't have annotations on them
             # to apply later, yet.
             if source_type.type == CTYPE_ARRAY:
-                complete_ctype = self._create_complete_source_type(source_type)
+                # Determine flattened array size and its element type.
+                flattened_size = 1
+                while source_type.type == CTYPE_ARRAY:
+                    for child in source_type.child_list:
+                        if flattened_size is not None:
+                            flattened_size *= child.const_int
+                        break
+                    else:
+                        flattened_size = None
+                    source_type = source_type.base_type
+
                 # If the array contains anonymous unions, like in the GValue
                 # struct, we need to handle this specially.  This is necessary
                 # to be able to properly calculate the size of the compound
                 # type (e.g. GValue) that contains this array, see
                 # <https://bugzilla.gnome.org/show_bug.cgi?id=657040>.
-                if (source_type.base_type.type == CTYPE_UNION
-                and source_type.base_type.name is None):
-                    synthesized_type = self._synthesize_union_type(symbol, parent_symbol)
-                    ftype = ast.Array(None, synthesized_type, complete_ctype=complete_ctype)
+                if source_type.type == CTYPE_UNION and source_type.name is None:
+                    element_type = self._synthesize_union_type(symbol, parent_symbol)
                 else:
                     ctype = self._create_source_type(source_type)
-                    canonical_ctype = self._canonicalize_ctype(ctype)
-                    if canonical_ctype[-1] == '*':
-                        derefed_name = canonical_ctype[:-1]
-                    else:
-                        derefed_name = canonical_ctype
-                    if complete_ctype[-1] == '*':
-                        derefed_complete_ctype = complete_ctype[:-1]
-                    else:
-                        derefed_complete_ctype = complete_ctype
-                    from_ctype = self.create_type_from_ctype_string(ctype,
-                                                                    complete_ctype=complete_ctype)
-                    ftype = ast.Array(None, from_ctype,
-                                      ctype=derefed_name,
-                                      complete_ctype=derefed_complete_ctype)
-                child_list = list(symbol.base_type.child_list)
+                    complete_ctype = self._create_complete_source_type(source_type)
+                    element_type = self.create_type_from_ctype_string(ctype,
+                                                                      complete_ctype=complete_ctype)
+                ftype = ast.Array(None, element_type)
                 ftype.zeroterminated = False
-                if child_list:
-                    ftype.size = child_list[0].const_int
+                ftype.size = flattened_size
             else:
                 ftype = self._create_type_from_base(symbol.base_type)
             # ast.Fields are assumed to be read-write
@@ -625,7 +633,8 @@ raise ValueError."""
             # https://bugzilla.gnome.org/show_bug.cgi?id=755882
             if name.endswith('_autoptr'):
                 return None
-            return ast.Alias(name, target, ctype=symbol.ident)
+            node = ast.Alias(name, target, ctype=symbol.ident)
+            node.add_symbol_reference(symbol)
         else:
             raise NotImplementedError(
                 "symbol '%s' of type %s" % (symbol.ident, ctype_name(ctype)))
@@ -728,7 +737,10 @@ raise ValueError."""
         if symbol.type == CSYMBOL_TYPE_ELLIPSIS:
             return ast.Parameter('...', ast.Varargs())
         else:
-            ptype = self._create_type_from_base(symbol.base_type, is_parameter=True)
+            if symbol.base_type:
+                ptype = self._create_type_from_base(symbol.base_type, is_parameter=True)
+            else:
+                ptype = None
 
             if symbol.ident is None:
                 if symbol.base_type and symbol.base_type.type != CTYPE_VOID:
