@@ -34,6 +34,8 @@
 #include <string.h>
 #ifndef _WIN32
 #include <limits.h>
+#else
+#include <io.h>
 #endif
 
 #include <glib.h>
@@ -371,6 +373,15 @@ check_identifier (GISourceScanner *scanner,
 #define G_PATH_LENGTH 2048
 #endif
 
+#ifdef _WIN32
+/* We don't want to include <windows.h> as it clashes horribly
+ * with token names from scannerparser.h. So just declare
+ * GetFullPathNameA() here unless we already defined it, like
+ * in giscanner.c.
+ */
+extern unsigned long __stdcall GetFullPathNameA(const char*, int, char*, char**);
+#endif
+
 static inline char *
 _realpath (const char *path)
 {
@@ -379,12 +390,6 @@ _realpath (const char *path)
 
   return realpath (path, buffer) ? g_strdup (buffer) : NULL;
 #else
-  /* We don't want to include <windows.h> as it clashes horribly
-   * with token names from scannerparser.h. So just declare
-   * GetFullPathNameA() here unless we already defined it, like
-   * in giscanner.c.
-   */
-  extern unsigned long __stdcall GetFullPathNameA(const char*, int, char*, char**);
   char *buffer;
   char dummy;
   int rc, len;
@@ -515,7 +520,8 @@ print_error (GISourceScanner *scanner)
 {
   if (yytext[0]) {
     char *filename = g_file_get_parse_name (scanner->current_file);
-    fprintf(stderr, "%s:%d: unexpected character `%c'\n", filename, lineno, yytext[0]);
+    gchar *error = g_strdup_printf ("%s:%d: unexpected character `%c'", filename, lineno, yytext[0]);
+    g_ptr_array_add (scanner->errors, error);
     g_free (filename);
   }
 }

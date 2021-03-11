@@ -4,6 +4,7 @@
 	    xmlns:c="http://www.gtk.org/introspection/c/1.0"
 	    xmlns:glib="http://www.gtk.org/introspection/glib/1.0">
   <package name="@CAIRO_GIR_PACKAGE@"/>
+  <c:include name="cairo-gobject.h"/>
   <namespace name="cairo" version="1.0"
 	     shared-library="@CAIRO_SHARED_LIBRARY@"
 	     c:identifier-prefixes="cairo"
@@ -644,6 +645,22 @@
 	    glib:type-name="CairoScaledFont"
 	    glib:get-type="cairo_gobject_scaled_font_get_type"/>
     <record name="Path" c:type="cairo_path_t" foreign="1"/>
+    <record name="Rectangle" c:type="cairo_rectangle_t"
+            glib:type-name="CairoRectangle"
+            glib:get-type="cairo_gobject_rectangle_get_type">
+      <field name="x" writable="1">
+        <type name="gdouble" c:type="gdouble"/>
+      </field>
+      <field name="y" writable="1">
+        <type name="gdouble" c:type="gdouble"/>
+      </field>
+      <field name="width" writable="1">
+        <type name="gdouble" c:type="gdouble"/>
+      </field>
+      <field name="height" writable="1">
+        <type name="gdouble" c:type="gdouble"/>
+      </field>
+    </record>
     <record name="RectangleInt" c:type="cairo_rectangle_int_t"
 	    glib:type-name="CairoRectangleInt"
 	    glib:get-type="cairo_gobject_rectangle_int_get_type">

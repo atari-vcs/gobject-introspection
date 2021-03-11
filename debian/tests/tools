@@ -6,8 +6,8 @@
 set -e
 
 WORKDIR=$(mktemp -d)
-trap "rm -rf $WORKDIR" 0 INT QUIT ABRT PIPE TERM
-cd $WORKDIR
+trap 'rm -rf "$WORKDIR"' 0 INT QUIT ABRT PIPE TERM
+cd "$WORKDIR"
 
 echo "g-ir-scanner..."
 g-ir-scanner --include=cairo-1.0 --include=Gio-2.0 --namespace=Regress --nsversion=1.0   --header-only /usr/share/gobject-introspection-1.0/tests/*.h --output Regress.gir

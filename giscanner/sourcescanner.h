@@ -41,6 +41,7 @@ typedef enum
   CSYMBOL_TYPE_CONST,
   CSYMBOL_TYPE_OBJECT,
   CSYMBOL_TYPE_FUNCTION,
+  CSYMBOL_TYPE_FUNCTION_MACRO,
   CSYMBOL_TYPE_STRUCT,
   CSYMBOL_TYPE_UNION,
   CSYMBOL_TYPE_ENUM,
@@ -111,13 +112,14 @@ struct _GISourceScanner
   gboolean macro_scan;
   gboolean private; /* set by gtk-doc comment <private>/<public> */
   gboolean flags; /* set by gtk-doc comment <flags> */
-  GSList *symbols;
+  GPtrArray *symbols; /* GISourceSymbol */
   GHashTable *files;
-  GSList *comments; /* _GIComment */
+  GPtrArray *comments; /* GISourceComment */
   GHashTable *typedef_table;
   GHashTable *const_table;
   gboolean skipping;
   GQueue conditionals;
+  GPtrArray *errors;
 };
 
 struct _GISourceSymbol
@@ -155,13 +157,14 @@ GISourceScanner *   gi_source_scanner_new              (void);
 gboolean            gi_source_scanner_lex_filename     (GISourceScanner  *igenerator,
 						        const gchar      *filename);
 gboolean            gi_source_scanner_parse_file       (GISourceScanner  *igenerator,
-						        FILE             *file);
+						        const gchar      *filename);
 void                gi_source_scanner_parse_macros     (GISourceScanner  *scanner,
 							GList            *filenames);
 void                gi_source_scanner_set_macro_scan   (GISourceScanner  *scanner,
 							gboolean          macro_scan);
-GSList *            gi_source_scanner_get_symbols      (GISourceScanner  *scanner);
-GSList *            gi_source_scanner_get_comments     (GISourceScanner  *scanner);
+GPtrArray *         gi_source_scanner_get_symbols      (GISourceScanner  *scanner);
+GPtrArray *         gi_source_scanner_get_comments     (GISourceScanner  *scanner);
+GPtrArray *         gi_source_scanner_get_errors       (GISourceScanner  *scanner);
 void                gi_source_scanner_free             (GISourceScanner  *scanner);
 
 GISourceSymbol *    gi_source_symbol_new               (GISourceSymbolType  type, GFile *file, int line);

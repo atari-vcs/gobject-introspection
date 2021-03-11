@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- Mode: Python -*-
 # GObject-Introspection - a framework for introspecting GObject libraries
 # Copyright (C) 2010 Zach Goldberg
@@ -20,11 +19,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 #
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import os
 import re
@@ -1215,7 +1209,7 @@ class DevDocsFormatterGjs(DocFormatterGjs):
         try:
             return super(DevDocsFormatterGjs, self).to_underscores(node)
         except Exception as e:
-            if e.message == 'invalid node':
+            if e.args[0] == 'invalid node':
                 print('warning: invalid node in', node.parent.name,
                     file=sys.stderr)
                 return node.parent.name + '_invalid_node'

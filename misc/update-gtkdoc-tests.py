@@ -161,10 +161,6 @@ def parsed2tree(docblock):
 
 
 if __name__ == '__main__':
-    if sys.version_info < (3, 0):
-        print('Sorry, update-gtkdoc-tests.py requires Python 3.x')
-        sys.exit(1)
-
     gi_tests = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'tests', 'scanner', 'annotationparser', 'gtkdoc'))
 
     gtkdoc_tests = None
@@ -193,9 +189,9 @@ if __name__ == '__main__':
                 logger = MessageLogger.get(namespace=None)
                 parser = GtkDocCommentBlockParser()
                 writer = GtkDocCommentBlockWriter(indent=True)
-                logger.enable_warnings((ERROR, FATAL))
+                logger.enable_warnings(True)
 
-                with io.open(path, 'rU') as f:
+                with io.open(path, 'r') as f:
                     lines = f.readlines()
 
                 chunks = []

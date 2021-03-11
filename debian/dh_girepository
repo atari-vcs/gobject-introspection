@@ -8,6 +8,8 @@ dh_girepository - compute dependencies for GObject introspection packages
 
 use strict;
 use File::Find;
+use Dpkg::Deps;
+use Dpkg::Control;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -101,32 +103,15 @@ my $format;
 
 # Get Build-Depends in an array
 my @bdeps;
-my $cur = 0;
-open (my $control, "<", "debian/control") or error ("Cannot open debian/control");
-while (<$control>) {
-    chomp;
-    s/\s+$//;
-    if ($cur) {
-        if (/^\s+(.*)$/) {
-            push @bdeps, split ",",$1;
-            if ($1 !~ /,$/) {
-                $cur = 0;
-            }
-        } else {
-            $cur = 0;
-        }
-    }
-    if (/^Build-Depends:\s*(.*)$/) {
-        push @bdeps, split ",",$1;
-        if ($1 =~ /,$/) {
-            $cur = 1;
-        } else {
-            $cur = 0;
-        }
+
+my $ctrl = Dpkg::Control->new(type => CTRL_INFO_SRC);
+$ctrl->load('debian/control');
+foreach my $field (qw(Build-Depends Build-Depends-Arch Build-Depends-Indep)) {
+    if (defined $ctrl->{$field}) {
+        my $value = deps_parse($ctrl->{$field}, build_dep => 1);
+        push @bdeps, split ', ', $value->output;
     }
 }
-close $control;
-
 
 # We can’t parse .typelib files, so we need the corresponding .gir
 # somewhere in the same source package (or with -l).

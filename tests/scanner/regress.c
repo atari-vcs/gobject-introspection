@@ -865,6 +865,22 @@ regress_test_array_fixed_size_int_return (void)
 }
 
 /**
+ * regress_test_array_static_in_int
+ * @x: (array fixed-size=10): a list of 10 integers
+ */
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+void
+regress_test_array_static_in_int (int x[static 10])
+{
+}
+#else
+void
+regress_test_array_static_in_int (int x[10])
+{
+}
+#endif
+
+/**
  * regress_test_strv_out_c:
  *
  * Returns: (transfer none):
@@ -917,7 +933,8 @@ regress_test_array_int_none_out(int *len)
  * @len: length
  */
 void
-regress_test_array_int_null_in (int *arr, int len)
+regress_test_array_int_null_in (int *arr,
+                                int  len G_GNUC_UNUSED)
 {
   g_assert (arr == NULL);
 }
@@ -1737,7 +1754,7 @@ regress_test_struct_a_clone (RegressTestStructA *a,
  */
 void
 regress_test_struct_a_parse (RegressTestStructA *a_out,
-                             const gchar *string)
+                             const gchar        *string G_GNUC_UNUSED)
 {
 	a_out->some_int = 23;
 }
@@ -1826,7 +1843,7 @@ const RegressTestSimpleBoxedA*
 regress_test_simple_boxed_a_const_return (void)
 {
   static RegressTestSimpleBoxedA simple_a = {
-    5, 6, 7.0
+    5, 6, 7.0, REGRESS_TEST_VALUE1
   };
 
   return &simple_a;
@@ -1947,7 +1964,7 @@ regress_test_boxed_equals (RegressTestBoxed *boxed,
 }
 
 void
-regress_test_boxeds_not_a_method (RegressTestBoxed *boxed)
+regress_test_boxeds_not_a_method (RegressTestBoxed *boxed G_GNUC_UNUSED)
 {
 }
 
@@ -2103,6 +2120,7 @@ enum
   PROP_TEST_OBJ_GTYPE,
   PROP_TEST_OBJ_NAME_CONFLICT,
   PROP_TEST_OBJ_BYTE_ARRAY,
+  PROP_TEST_OBJ_WRITE_ONLY,
 };
 
 static void
@@ -2167,6 +2185,11 @@ regress_test_obj_set_property (GObject      *object,
 
     case PROP_TEST_OBJ_BYTE_ARRAY:
       self->byte_array = g_value_get_boxed (value);
+      break;
+
+    case PROP_TEST_OBJ_WRITE_ONLY:
+      if (g_value_get_boolean (value))
+        self->some_int8 = 0;
       break;
 
     default:
@@ -2273,7 +2296,8 @@ regress_test_obj_dispose (GObject *gobject)
 }
 
 static int
-regress_test_obj_default_matrix (RegressTestObj *obj, const char *somestr)
+regress_test_obj_default_matrix (RegressTestObj *obj G_GNUC_UNUSED,
+                                 const char     *somestr G_GNUC_UNUSED)
 {
   return 42;
 }
@@ -2292,6 +2316,7 @@ enum {
   REGRESS_TEST_OBJ_SIGNAL_SIG_WITH_UINT64_PROP,
   REGRESS_TEST_OBJ_SIGNAL_SIG_WITH_INTARRAY_RET,
   REGRESS_TEST_OBJ_SIGNAL_SIG_WITH_INOUT_INT,
+  REGRESS_TEST_OBJ_SIGNAL_SIG_WITH_GERROR,
   N_REGRESS_TEST_OBJ_SIGNALS
 };
 
@@ -2563,6 +2588,26 @@ regress_test_obj_class_init (RegressTestObjClass *klass)
                   1,
                   G_TYPE_POINTER);
 
+  /**
+   * RegressTestObj::sig-with-gerror:
+   * @self: The object that emitted the signal
+   * @error: (nullable) (type GLib.Error): A #GError if something went wrong
+   *   internally in @self. You must not free this #GError.
+   *
+   * This signal is modeled after #GstDiscoverer::discovered, and is added to
+   * exercise the path of a #GError being marshalled as a boxed type instead of
+   * an exception in the introspected language.
+   *
+   * Use via regress_test_obj_emit_sig_with_error() and
+   * regress_test_obj_emit_sig_with_null_error(), or emit via the introspected
+   * language.
+   */
+  regress_test_obj_signals[REGRESS_TEST_OBJ_SIGNAL_SIG_WITH_GERROR] =
+      g_signal_new ("sig-with-gerror", G_TYPE_FROM_CLASS (klass),
+                    G_SIGNAL_RUN_LAST, 0, NULL, NULL,
+                    g_cclosure_marshal_generic, G_TYPE_NONE, 1,
+                    G_TYPE_ERROR | G_SIGNAL_TYPE_STATIC_SCOPE);
+
   gobject_class->set_property = regress_test_obj_set_property;
   gobject_class->get_property = regress_test_obj_get_property;
   gobject_class->dispose = regress_test_obj_dispose;
@@ -2737,6 +2782,14 @@ regress_test_obj_class_init (RegressTestObjClass *klass)
                                    PROP_TEST_OBJ_BYTE_ARRAY,
                                    pspec);
 
+  /**
+   * TestObj:write-only:
+   */
+  pspec = g_param_spec_boolean ("write-only", "Write-only property",
+                                "A write-only bool property that resets the value of TestObj:int to 0 when true",
+                                FALSE, G_PARAM_WRITABLE);
+  g_object_class_install_property (gobject_class, PROP_TEST_OBJ_WRITE_ONLY, pspec);
+
   klass->matrix = regress_test_obj_default_matrix;
 }
 
@@ -2754,7 +2807,7 @@ regress_test_obj_init (RegressTestObj *obj)
  * @obj: A #RegressTestObj
  */
 RegressTestObj *
-regress_test_obj_new (RegressTestObj *obj)
+regress_test_obj_new (RegressTestObj *obj G_GNUC_UNUSED)
 {
   return g_object_new (REGRESS_TEST_TYPE_OBJ, NULL);
 }
@@ -2773,7 +2826,8 @@ regress_constructor (void)
  * regress_test_obj_new_from_file:
  */
 RegressTestObj *
-regress_test_obj_new_from_file (const char *x, GError **error)
+regress_test_obj_new_from_file (const char *x G_GNUC_UNUSED,
+                                GError    **error G_GNUC_UNUSED)
 {
   return g_object_new (REGRESS_TEST_TYPE_OBJ, NULL);
 }
@@ -2855,8 +2909,31 @@ regress_test_obj_emit_sig_with_inout_int (RegressTestObj *obj)
   g_assert_cmpint (inout, ==, 43);
 }
 
+/**
+ * regress_test_obj_emit_sig_with_error:
+ * @self: The object to emit the signal.
+ */
+void
+regress_test_obj_emit_sig_with_error (RegressTestObj *self)
+{
+  GError *err = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_FAILED,
+                                     "Something failed");
+  g_signal_emit_by_name (self, "sig-with-gerror", err);
+  g_error_free (err);
+}
+
+/**
+ * regress_test_obj_emit_sig_with_null_error:
+ * @self: The object to emit the signal.
+ */
+void
+regress_test_obj_emit_sig_with_null_error (RegressTestObj *self)
+{
+  g_signal_emit_by_name (self, "sig-with-gerror", NULL);
+}
+
 int
-regress_test_obj_instance_method (RegressTestObj *obj)
+regress_test_obj_instance_method (RegressTestObj *obj G_GNUC_UNUSED)
 {
     return -1;
 }
@@ -2884,7 +2961,7 @@ regress_test_obj_static_method (int x)
  *
  */
 void
-regress_forced_method (RegressTestObj *obj)
+regress_forced_method (RegressTestObj *obj G_GNUC_UNUSED)
 {
 }
 
@@ -2900,7 +2977,7 @@ regress_forced_method (RegressTestObj *obj)
  *
  */
 void
-regress_test_obj_torture_signature_0 (RegressTestObj    *obj,
+regress_test_obj_torture_signature_0 (RegressTestObj    *obj G_GNUC_UNUSED,
                               int         x,
                               double     *y,
                               int        *z,
@@ -2927,7 +3004,7 @@ regress_test_obj_torture_signature_0 (RegressTestObj    *obj,
  * This function throws an error if m is odd.
  */
 gboolean
-regress_test_obj_torture_signature_1 (RegressTestObj   *obj,
+regress_test_obj_torture_signature_1 (RegressTestObj   *obj G_GNUC_UNUSED,
                               int        x,
                               double     *y,
                               int        *z,
@@ -2962,15 +3039,15 @@ regress_test_obj_torture_signature_1 (RegressTestObj   *obj,
  * Returns: (skip): %TRUE if the call succeeds, %FALSE if @error is set.
  */
 gboolean
-regress_test_obj_skip_return_val (RegressTestObj *obj,
+regress_test_obj_skip_return_val (RegressTestObj *obj G_GNUC_UNUSED,
                                   gint            a,
                                   gint           *out_b,
-                                  gdouble         c,
+                                  gdouble         c G_GNUC_UNUSED,
                                   gint           *inout_d,
                                   gint           *out_sum,
                                   gint            num1,
                                   gint            num2,
-                                  GError        **error)
+                                  GError        **error G_GNUC_UNUSED)
 {
   if (out_b != NULL)
     *out_b = a + 1;
@@ -2993,7 +3070,7 @@ regress_test_obj_skip_return_val (RegressTestObj *obj,
  * Returns: (skip): %TRUE if the call succeeds, %FALSE if @error is set.
  */
 gboolean
-regress_test_obj_skip_return_val_no_out (RegressTestObj *obj,
+regress_test_obj_skip_return_val_no_out (RegressTestObj *obj G_GNUC_UNUSED,
                                          gint            a,
                                          GError        **error)
 {
@@ -3022,15 +3099,15 @@ regress_test_obj_skip_return_val_no_out (RegressTestObj *obj,
  * Returns: %TRUE if the call succeeds, %FALSE if @error is set.
  */
 gboolean
-regress_test_obj_skip_param (RegressTestObj *obj,
+regress_test_obj_skip_param (RegressTestObj *obj G_GNUC_UNUSED,
                              gint            a,
                              gint           *out_b,
-                             gdouble         c,
+                             gdouble         c G_GNUC_UNUSED,
                              gint           *inout_d,
                              gint           *out_sum,
                              gint            num1,
                              gint            num2,
-                             GError        **error)
+                             GError        **error G_GNUC_UNUSED)
 {
   if (out_b != NULL)
     *out_b = a + 1;
@@ -3058,15 +3135,15 @@ regress_test_obj_skip_param (RegressTestObj *obj,
  * Returns: %TRUE if the call succeeds, %FALSE if @error is set.
  */
 gboolean
-regress_test_obj_skip_out_param (RegressTestObj *obj,
+regress_test_obj_skip_out_param (RegressTestObj *obj G_GNUC_UNUSED,
                                  gint            a,
                                  gint           *out_b,
-                                 gdouble         c,
+                                 gdouble         c G_GNUC_UNUSED,
                                  gint           *inout_d,
                                  gint           *out_sum,
                                  gint            num1,
                                  gint            num2,
-                                 GError        **error)
+                                 GError        **error G_GNUC_UNUSED)
 {
   if (out_b != NULL)
     *out_b = a + 1;
@@ -3094,15 +3171,15 @@ regress_test_obj_skip_out_param (RegressTestObj *obj,
  * Returns: %TRUE if the call succeeds, %FALSE if @error is set.
  */
 gboolean
-regress_test_obj_skip_inout_param (RegressTestObj *obj,
+regress_test_obj_skip_inout_param (RegressTestObj *obj G_GNUC_UNUSED,
                                    gint            a,
                                    gint           *out_b,
-                                   gdouble         c,
+                                   gdouble         c G_GNUC_UNUSED,
                                    gint           *inout_d,
                                    gint           *out_sum,
                                    gint            num1,
                                    gint            num2,
-                                   GError        **error)
+                                   GError        **error G_GNUC_UNUSED)
 {
   if (out_b != NULL)
     *out_b = a + 1;
@@ -3133,7 +3210,7 @@ regress_test_obj_do_matrix (RegressTestObj *obj, const char *somestr)
  * @obj: (allow-none): A #RegressTestObj
  */
 void
-regress_func_obj_null_in (RegressTestObj *obj)
+regress_func_obj_null_in (RegressTestObj *obj G_GNUC_UNUSED)
 {
 }
 
@@ -3153,7 +3230,7 @@ regress_test_obj_null_out (RegressTestObj **obj)
  * @obj: (nullable): A #RegressTestObj
  */
 void
-regress_func_obj_nullable_in (RegressTestObj *obj)
+regress_func_obj_nullable_in (RegressTestObj *obj G_GNUC_UNUSED)
 {
 }
 
@@ -3163,8 +3240,8 @@ regress_func_obj_nullable_in (RegressTestObj *obj)
  * @input: (type GObject): some #GObject
  */
 void
-regress_test_obj_not_nullable_typed_gpointer_in (RegressTestObj *obj,
-                                                 gpointer        input)
+regress_test_obj_not_nullable_typed_gpointer_in (RegressTestObj *obj G_GNUC_UNUSED,
+                                                 gpointer        input G_GNUC_UNUSED)
 {
 }
 
@@ -3175,9 +3252,9 @@ regress_test_obj_not_nullable_typed_gpointer_in (RegressTestObj *obj,
  * @count: length of @input
  */
 void
-regress_test_obj_not_nullable_element_typed_gpointer_in (RegressTestObj *obj,
-                                                         gpointer        input,
-                                                         guint           count)
+regress_test_obj_not_nullable_element_typed_gpointer_in (RegressTestObj *obj G_GNUC_UNUSED,
+                                                         gpointer        input G_GNUC_UNUSED,
+                                                         guint           count G_GNUC_UNUSED)
 {
 }
 
@@ -3186,7 +3263,7 @@ regress_test_obj_not_nullable_element_typed_gpointer_in (RegressTestObj *obj,
  * @obj: A #RegressTestObj
  */
 void
-regress_test_obj_name_conflict (RegressTestObj *obj)
+regress_test_obj_name_conflict (RegressTestObj *obj G_GNUC_UNUSED)
 {
 }
 
@@ -3214,16 +3291,86 @@ struct _CallbackInfo
   gpointer user_data;
 };
 
+static void
+regress_test_sub_obj_iface_init (RegressTestInterfaceIface *iface G_GNUC_UNUSED)
+{
+}
 
-G_DEFINE_TYPE(RegressTestSubObj, regress_test_sub_obj, REGRESS_TEST_TYPE_OBJ);
+enum {
+  PROP_TEST_SUB_OBJ_NUMBER = 1,
+  PROP_TEST_SUB_OBJ_BOOLEAN,
+};
+
+G_DEFINE_TYPE_WITH_CODE(RegressTestSubObj, regress_test_sub_obj,
+                        REGRESS_TEST_TYPE_OBJ,
+                        G_IMPLEMENT_INTERFACE(REGRESS_TEST_TYPE_INTERFACE,
+                                              regress_test_sub_obj_iface_init));
+
+
+static void
+regress_test_sub_obj_set_property (GObject      *object,
+                                   guint         property_id,
+                                   const GValue *value,
+                                   GParamSpec   *pspec)
+{
+  RegressTestSubObj *self = REGRESS_TEST_SUB_OBJECT (object);
+
+  switch (property_id)
+    {
+    case PROP_TEST_SUB_OBJ_NUMBER:
+      self->number = g_value_get_int (value);
+      break;
+
+    case PROP_TEST_SUB_OBJ_BOOLEAN:
+      self->boolean = g_value_get_boolean (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    }
+}
+
+static void
+regress_test_sub_obj_get_property (GObject    *object,
+                                   guint       property_id,
+                                   GValue     *value,
+                                   GParamSpec *pspec)
+{
+  RegressTestSubObj *self = REGRESS_TEST_SUB_OBJECT (object);
+
+  switch (property_id)
+    {
+    case PROP_TEST_SUB_OBJ_NUMBER:
+      g_value_set_int (value, self->number);
+      break;
+
+    case PROP_TEST_SUB_OBJ_BOOLEAN:
+      g_value_set_boolean (value, self->boolean);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    }
+}
 
 static void
 regress_test_sub_obj_class_init (RegressTestSubObjClass *klass)
 {
+  const guint flags = G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS;
+  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  gobject_class->get_property = regress_test_sub_obj_get_property;
+  gobject_class->set_property = regress_test_sub_obj_set_property;
+
+  g_object_class_install_property (gobject_class, PROP_TEST_SUB_OBJ_BOOLEAN,
+                                   g_param_spec_boolean ("boolean", "Boolean", "Boolean",
+                                                         TRUE, flags));
+
+  g_object_class_override_property (gobject_class, PROP_TEST_SUB_OBJ_NUMBER,
+                                    "number");
 }
 
 static void
-regress_test_sub_obj_init (RegressTestSubObj *obj)
+regress_test_sub_obj_init (RegressTestSubObj *self G_GNUC_UNUSED)
 {
 }
 
@@ -3234,7 +3381,7 @@ regress_test_sub_obj_new (void)
 }
 
 int
-regress_test_sub_obj_instance_method (RegressTestSubObj *obj)
+regress_test_sub_obj_instance_method (RegressTestSubObj *self G_GNUC_UNUSED)
 {
     return 0;
 }
@@ -3343,11 +3490,13 @@ regress_test_value_fundamental_object_peek_pointer (const GValue * value)
 }
 
 static gchar *
-regress_test_value_fundamental_object_collect (GValue * value,
-                                       guint n_collect_values,
-                                       GTypeCValue * collect_values,
-                                       guint collect_flags)
+regress_test_value_fundamental_object_collect (GValue      *value,
+                                               guint        n_collect_values,
+                                               GTypeCValue *collect_values,
+                                               guint        collect_flags G_GNUC_UNUSED)
 {
+  g_assert (n_collect_values > 0);
+
   if (collect_values[0].v_pointer) {
     value->data[0].v_pointer =
         regress_test_fundamental_object_ref (collect_values[0].v_pointer);
@@ -3364,7 +3513,11 @@ regress_test_value_fundamental_object_lcopy (const GValue * value,
                                      GTypeCValue * collect_values,
                                      guint collect_flags)
 {
-  gpointer *fundamental_object_p = collect_values[0].v_pointer;
+  gpointer *fundamental_object_p;
+
+  g_assert (n_collect_values > 0);
+
+  fundamental_object_p = collect_values[0].v_pointer;
 
   if (!fundamental_object_p) {
     return g_strdup_printf ("value location for '%s' passed as NULL",
@@ -3382,20 +3535,21 @@ regress_test_value_fundamental_object_lcopy (const GValue * value,
 }
 
 static void
-regress_test_fundamental_object_finalize (RegressTestFundamentalObject * obj)
+regress_test_fundamental_object_finalize (RegressTestFundamentalObject *self G_GNUC_UNUSED)
 {
 
 }
 
 static RegressTestFundamentalObject *
-regress_test_fundamental_object_copy_default (const RegressTestFundamentalObject * obj)
+regress_test_fundamental_object_copy_default (const RegressTestFundamentalObject *self G_GNUC_UNUSED)
 {
   g_warning ("RegressTestFundamentalObject classes must implement RegressTestFundamentalObject::copy");
   return NULL;
 }
 
 static void
-regress_test_fundamental_object_class_init (gpointer g_class, gpointer class_data)
+regress_test_fundamental_object_class_init (gpointer g_class,
+                                            gpointer class_data G_GNUC_UNUSED)
 {
   RegressTestFundamentalObjectClass *mo_class = REGRESS_TEST_FUNDAMENTAL_OBJECT_CLASS (g_class);
 
@@ -3404,7 +3558,8 @@ regress_test_fundamental_object_class_init (gpointer g_class, gpointer class_dat
 }
 
 static void
-regress_test_fundamental_object_init (GTypeInstance * instance, gpointer klass)
+regress_test_fundamental_object_init (GTypeInstance *instance,
+                                      gpointer       klass G_GNUC_UNUSED)
 {
   RegressTestFundamentalObject *fundamental_object = REGRESS_TEST_FUNDAMENTAL_OBJECT_CAST (instance);
 
@@ -3520,7 +3675,7 @@ regress_test_fundamental_sub_object_class_init (RegressTestFundamentalSubObjectC
 }
 
 static void
-regress_test_fundamental_sub_object_init(RegressTestFundamentalSubObject *object)
+regress_test_fundamental_sub_object_init(RegressTestFundamentalSubObject *self G_GNUC_UNUSED)
 {
 
 }
@@ -3556,12 +3711,12 @@ G_DEFINE_TYPE (RegressTestFundamentalHiddenSubObject,
                REGRESS_TEST_TYPE_FUNDAMENTAL_OBJECT);
 
 static void
-regress_test_fundamental_hidden_sub_object_init (RegressTestFundamentalHiddenSubObject *object)
+regress_test_fundamental_hidden_sub_object_init (RegressTestFundamentalHiddenSubObject *self G_GNUC_UNUSED)
 {
 }
 
 static void
-regress_test_fundamental_hidden_sub_object_class_init (RegressTestFundamentalHiddenSubObjectClass *klass)
+regress_test_fundamental_hidden_sub_object_class_init (RegressTestFundamentalHiddenSubObjectClass *klass G_GNUC_UNUSED)
 {
 }
 
@@ -3844,7 +3999,8 @@ regress_test_async_ready_callback (GAsyncReadyCallback callback)
  *
  **/
 void
-regress_test_obj_instance_method_callback (RegressTestObj *obj, RegressTestCallback callback)
+regress_test_obj_instance_method_callback (RegressTestObj     *self G_GNUC_UNUSED,
+                                           RegressTestCallback callback)
 {
     if (callback != NULL)
         callback();
@@ -3944,7 +4100,7 @@ regress_test_owned_gerror_callback (RegressTestCallbackOwnedGError callback)
  * https://bugzilla.gnome.org/show_bug.cgi?id=685399
  */
 void
-regress_test_skip_unannotated_callback (RegressTestCallback callback)
+regress_test_skip_unannotated_callback (RegressTestCallback callback G_GNUC_UNUSED)
 {
 }
 
@@ -3956,6 +4112,7 @@ G_DEFINE_INTERFACE (RegressTestInterface, regress_test_interface, G_TYPE_OBJECT)
 static void
 regress_test_interface_default_init(RegressTestInterfaceIface *iface)
 {
+  const guint flags = G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS;
   static gboolean initialized = FALSE;
   if (initialized)
     return;
@@ -3969,6 +4126,13 @@ regress_test_interface_default_init(RegressTestInterfaceIface *iface)
   g_signal_new ("interface-signal", REGRESS_TEST_TYPE_INTERFACE,
                 G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
                 G_TYPE_NONE, 1, G_TYPE_POINTER);
+
+  /**
+   * RegressTestInterface:number:
+   */
+  g_object_interface_install_property (iface,
+                                       g_param_spec_int ("number", "Number", "Number",
+                                                         0, 10, 0, flags));
 
   initialized = TRUE;
 }
@@ -4109,7 +4273,7 @@ regress_test_floating_class_init (RegressTestFloatingClass *klass)
 }
 
 static void
-regress_test_floating_init (RegressTestFloating *obj)
+regress_test_floating_init (RegressTestFloating *self G_GNUC_UNUSED)
 {
 }
 
@@ -4310,7 +4474,7 @@ regress_test_multiline_doc_comments (void)
  * What we're testing here is that the scanner ignores the @a nested inside XML.
  */
 void
-regress_test_nested_parameter (int a)
+regress_test_nested_parameter (int a G_GNUC_UNUSED)
 {
 }
 
@@ -4319,7 +4483,7 @@ regress_test_nested_parameter (int a)
  *
  */
 void
-regress_introspectable_via_alias (RegressPtrArrayAlias *data)
+regress_introspectable_via_alias (RegressPtrArrayAlias *data G_GNUC_UNUSED)
 {
 }
 
@@ -4328,7 +4492,7 @@ regress_introspectable_via_alias (RegressPtrArrayAlias *data)
  *
  */
 void
-regress_not_introspectable_via_alias (RegressVaListAlias ok)
+regress_not_introspectable_via_alias (RegressVaListAlias ok G_GNUC_UNUSED)
 {
 }
 
@@ -4361,8 +4525,8 @@ regress_test_struct_fixed_array_frob (RegressTestStructFixedArray *str)
  * libgnome-keyring.
  */
 void
-regress_has_parameter_named_attrs (int        foo,
-                                   gpointer   attributes)
+regress_has_parameter_named_attrs (int        foo G_GNUC_UNUSED,
+                                   gpointer   attributes G_GNUC_UNUSED)
 {
 }
 
@@ -4399,3 +4563,126 @@ regress_get_variant (void)
 {
   return g_variant_new_int32 (42);
 }
+
+/**
+ * regress_test_array_struct_out_none:
+ * @arr: (out) (array length=len) (transfer none): An array
+ * @len: (out): Length of @arr
+ *
+ * Test flat array output with transfer none.
+ * 
+ * Similar to:
+ * - mm_modem_peek_ports() with structs
+ * - gdk_query_visual_types() with enums
+ * - gdk_event_get_axes() with doubles
+ */
+void
+regress_test_array_struct_out_none (RegressTestStructA **arr, gsize *len)
+{
+  static RegressTestStructA array[3] = {
+    {.some_int = 111},
+    {.some_int = 222},
+    {.some_int = 333},
+  };
+
+  *arr = array;
+  *len = 3;
+}
+
+/**
+ * regress_test_array_struct_out_container:
+ * @arr: (out) (array length=len) (transfer container): An array
+ * @len: (out): Length of @arr
+ *
+ * Test flat array output with transfer container.
+ *
+ * Similar to pango_layout_get_log_attrs().
+ */
+void
+regress_test_array_struct_out_container (RegressTestStructA **arr, gsize *len)
+{
+
+  *arr = g_new0 (RegressTestStructA, 5);
+  (*arr)[0].some_int = 11;
+  (*arr)[1].some_int = 13;
+  (*arr)[2].some_int = 17;
+  (*arr)[3].some_int = 19;
+  (*arr)[4].some_int = 23;
+  *len = 5;
+}
+
+/**
+ * regress_test_array_struct_out_full_fixed:
+ * @arr: (out) (array fixed-size=4) (transfer full): An array
+ *
+ * Test flat fixed-size array output with transfer full.
+ */
+void
+regress_test_array_struct_out_full_fixed (RegressTestStructA **arr)
+{
+  *arr = g_new0 (RegressTestStructA, 4);
+  (*arr)[0].some_int = 2;
+  (*arr)[1].some_int = 3;
+  (*arr)[2].some_int = 5;
+  (*arr)[3].some_int = 7;
+}
+
+/**
+ * regress_test_array_struct_out_caller_alloc:
+ * @arr: (out caller-allocates) (array length=len): An array
+ * @len: Length of @arr
+ *
+ * Test flat caller-allocated array output.
+ *
+ * Similar to g_main_context_query().
+ */
+void
+regress_test_array_struct_out_caller_alloc (RegressTestStructA *arr, gsize len)
+{
+  guint i;
+
+  g_assert (arr != NULL);
+
+  memset (arr, 0, sizeof (RegressTestStructA) * len);
+  for (i=0; i != len; ++i)
+    arr[i].some_int = 111 * (i + 1);
+}
+
+/**
+ * regress_test_array_struct_in_full:
+ * @arr: (in) (array length=len) (transfer full): An array
+ * @len: Length of @arr
+ *
+ * Test flat array input with transfer full.
+ *
+ * Similar to: 
+ * - gsf_property_settings_free() with structs but they contain pointers
+ * - g_byte_array_new_take() with guint8s
+ */
+void
+regress_test_array_struct_in_full (RegressTestStructA *arr, gsize len)
+{
+  g_assert_cmpint (len, ==, 2);
+  g_assert_cmpint (arr[0].some_int, ==, 201);
+  g_assert_cmpint (arr[1].some_int, ==, 202);
+  g_free (arr);
+}
+
+/**
+ * regress_test_array_struct_in_none:
+ * @arr: (in) (array length=len) (transfer none): An array.
+ * @len: Length of @arr
+ *
+ * Test flat array input with transfer none.
+ *
+ * Similar to g_main_context_check() or gtk_target_list_new().
+ */
+void
+regress_test_array_struct_in_none (RegressTestStructA *arr, gsize len)
+{
+  g_assert_cmpint (len, ==, 3);
+  g_assert_cmpint (arr[0].some_int, ==, 301);
+  g_assert_cmpint (arr[1].some_int, ==, 302);
+  g_assert_cmpint (arr[2].some_int, ==, 303);
+}
+

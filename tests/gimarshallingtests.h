@@ -749,6 +749,9 @@ _GI_TEST_EXTERN
 void gi_marshalling_tests_array_enum_in (GIMarshallingTestsEnum *_enum, gint length);
 
 _GI_TEST_EXTERN
+void gi_marshalling_tests_array_flags_in (GIMarshallingTestsFlags *flags, gint length);
+
+_GI_TEST_EXTERN
 void gi_marshalling_tests_array_in_guint64_len (const gint *ints, guint64 length);
 
 _GI_TEST_EXTERN
@@ -834,6 +837,9 @@ GArray *gi_marshalling_tests_garray_utf8_container_return (void);
 _GI_TEST_EXTERN
 GArray *gi_marshalling_tests_garray_utf8_full_return (void);
 
+_GI_TEST_EXTERN
+GArray *gi_marshalling_tests_garray_boxed_struct_full_return (void);
+
 
 _GI_TEST_EXTERN
 void gi_marshalling_tests_garray_int_none_in (GArray *array_);
@@ -883,6 +889,9 @@ GPtrArray *gi_marshalling_tests_gptrarray_utf8_container_return (void);
 
 _GI_TEST_EXTERN
 GPtrArray *gi_marshalling_tests_gptrarray_utf8_full_return (void);
+
+_GI_TEST_EXTERN
+GPtrArray *gi_marshalling_tests_gptrarray_boxed_struct_full_return (void);
 
 
 _GI_TEST_EXTERN
@@ -1111,6 +1120,9 @@ void gi_marshalling_tests_gvalue_in_with_modification (GValue *value);
 _GI_TEST_EXTERN
 void gi_marshalling_tests_gvalue_in_enum (GValue *value);
 
+_GI_TEST_EXTERN
+void gi_marshalling_tests_gvalue_in_flags (GValue *value);
+
 
 _GI_TEST_EXTERN
 void gi_marshalling_tests_gvalue_out (GValue **value);
@@ -1317,14 +1329,6 @@ void gi_marshalling_tests_union_inv (GIMarshallingTestsUnion *union_);
 
 
 _GI_TEST_EXTERN
-void gi_marshalling_tests_union_out (GIMarshallingTestsUnion **union_);
-
-
-_GI_TEST_EXTERN
-void gi_marshalling_tests_union_inout (GIMarshallingTestsUnion **union_);
-
-
-_GI_TEST_EXTERN
 void gi_marshalling_tests_union_method (GIMarshallingTestsUnion *union_);
 
  /* Object */
@@ -1412,6 +1416,19 @@ struct _GIMarshallingTestsObjectClass
     void  (* vfunc_multiple_out_parameters) (GIMarshallingTestsObject *self, gfloat *a, gfloat *b);
 
     /**
+     * GIMarshallingTestsObjectClass::vfunc_one_inout_parameter:
+     * @a: (inout):
+     */
+    void  (* vfunc_one_inout_parameter) (GIMarshallingTestsObject *self, gfloat *a);
+
+    /**
+     * GIMarshallingTestsObjectClass::vfunc_multiple_inout_parameters:
+     * @a: (inout):
+     * @b: (inout):
+     */
+    void  (* vfunc_multiple_inout_parameters) (GIMarshallingTestsObject *self, gfloat *a, gfloat *b);
+
+    /**
      * GIMarshallingTestsObjectClass::vfunc_caller_allocated_out_parameter:
      * @a: (out):
      */
@@ -1435,6 +1452,19 @@ struct _GIMarshallingTestsObjectClass
      * @b: (out):
      */
     glong (* vfunc_return_value_and_multiple_out_parameters) (GIMarshallingTestsObject *self, glong *a, glong *b);
+
+    /**
+     * GIMarshallingTestsObjectClass::vfunc_return_value_and_one_inout_parameter:
+     * @a: (inout):
+     */
+    glong (* vfunc_return_value_and_one_inout_parameter) (GIMarshallingTestsObject *self, glong *a);
+
+    /**
+     * GIMarshallingTestsObjectClass::vfunc_return_value_and_multiple_inout_parameters:
+     * @a: (inout):
+     * @b: (inout):
+     */
+    glong (* vfunc_return_value_and_multiple_inout_parameters) (GIMarshallingTestsObject *self, glong *a, glong *b);
 
     /**
      * GIMarshallingTestsObjectClass::vfunc_meth_with_err:
@@ -1491,6 +1521,17 @@ struct _GIMarshallingTestsObjectClass
      * @object: (in) (transfer full):
      */
     void (* vfunc_in_object_transfer_full) (GIMarshallingTestsObject *self, GObject *object);
+
+    /**
+     * GIMarshallingTestsObjectClass::vfunc_return_flags:
+     */
+    GIMarshallingTestsFlags (* vfunc_return_flags) (GIMarshallingTestsObject *self);
+
+    /**
+     * GIMarshallingTestsObjectClass::vfunc_out_flags:
+     * @flags: (out):
+     */
+    void (* vfunc_out_flags) (GIMarshallingTestsObject *self, GIMarshallingTestsFlags *flags);
 };
 
 struct _GIMarshallingTestsObject
@@ -1563,6 +1604,12 @@ _GI_TEST_EXTERN
 void gi_marshalling_tests_object_vfunc_multiple_out_parameters (GIMarshallingTestsObject *self, gfloat *a, gfloat *b);
 
 _GI_TEST_EXTERN
+void gi_marshalling_tests_object_vfunc_one_inout_parameter (GIMarshallingTestsObject *self, gfloat *a);
+
+_GI_TEST_EXTERN
+void gi_marshalling_tests_object_vfunc_multiple_inout_parameters (GIMarshallingTestsObject *self, gfloat *a, gfloat *b);
+
+_GI_TEST_EXTERN
 void gi_marshalling_tests_object_vfunc_caller_allocated_out_parameter (GIMarshallingTestsObject *self, GValue *a);
 
 _GI_TEST_EXTERN
@@ -1575,6 +1622,12 @@ _GI_TEST_EXTERN
 glong gi_marshalling_tests_object_vfunc_return_value_and_multiple_out_parameters (GIMarshallingTestsObject *self, glong *a, glong *b);
 
 _GI_TEST_EXTERN
+glong gi_marshalling_tests_object_vfunc_return_value_and_one_inout_parameter (GIMarshallingTestsObject *self, glong *a);
+
+_GI_TEST_EXTERN
+glong gi_marshalling_tests_object_vfunc_return_value_and_multiple_inout_parameters (GIMarshallingTestsObject *self, glong *a, glong *b);
+
+_GI_TEST_EXTERN
 gboolean gi_marshalling_tests_object_vfunc_meth_with_error (GIMarshallingTestsObject *object, gint x, GError **error);
 
 
@@ -1583,6 +1636,12 @@ GIMarshallingTestsEnum gi_marshalling_tests_object_vfunc_return_enum (GIMarshall
 
 _GI_TEST_EXTERN
 void gi_marshalling_tests_object_vfunc_out_enum (GIMarshallingTestsObject *self, GIMarshallingTestsEnum *_enum);
+
+_GI_TEST_EXTERN
+GIMarshallingTestsFlags gi_marshalling_tests_object_vfunc_return_flags (GIMarshallingTestsObject *self);
+
+_GI_TEST_EXTERN
+void gi_marshalling_tests_object_vfunc_out_flags (GIMarshallingTestsObject *self, GIMarshallingTestsFlags *flags);
 
 
 _GI_TEST_EXTERN

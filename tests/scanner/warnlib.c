@@ -1,6 +1,9 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
+/* This file gets installed, so we can't assume config.h is available */
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #include "warnlib.h"
 
@@ -22,7 +25,7 @@ typedef WarnLibWhateverIface WarnLibWhateverInterface;
 G_DEFINE_INTERFACE (WarnLibWhatever, warnlib_whatever, G_TYPE_OBJECT)
 
 static void
-warnlib_whatever_default_init(WarnLibWhateverIface *iface)
+warnlib_whatever_default_init(WarnLibWhateverIface *iface G_GNUC_UNUSED)
 {
 }
 

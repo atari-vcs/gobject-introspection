@@ -1,16 +1,7 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 import difflib
-
-if sys.version_info.major < 3:
-    import __builtin__ as builtins
-else:
-    import builtins
+import builtins
 
 path = os.getenv('UNINSTALLED_INTROSPECTION_SRCDIR', None)
 assert path is not None
@@ -18,12 +9,13 @@ sys.path.insert(0, path)
 
 # Not correct, but enough to get the tests going uninstalled
 builtins.__dict__['DATADIR'] = path
+builtins.__dict__['GIRDIR'] = ''
 
 from giscanner.annotationparser import GtkDocCommentBlockParser
 from giscanner.ast import Include, Namespace
 from giscanner.introspectablepass import IntrospectablePass
 from giscanner.maintransformer import MainTransformer
-from giscanner.message import MessageLogger, WARNING, ERROR, FATAL
+from giscanner.message import MessageLogger
 from giscanner.sourcescanner import SourceScanner
 from giscanner.transformer import Transformer
 from giscanner.scannermain import process_packages
@@ -86,7 +78,7 @@ def _diff(a, b):
 
 
 def _extract_expected(filename):
-    fd = open(filename, 'rU')
+    fd = open(filename, 'r')
     data = fd.read()
     fd.close()
 
@@ -106,7 +98,7 @@ def check(args):
     output = ChunkedIO()
     namespace = Namespace('Test', '1.0')
     logger = MessageLogger.get(namespace=namespace, output=output)
-    logger.enable_warnings((WARNING, ERROR, FATAL))
+    logger.enable_warnings(True)
 
     transformer = Transformer(namespace)
     transformer.set_include_paths([

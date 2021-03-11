@@ -38,7 +38,7 @@ libgirepository-1.0.so.1 libgirepository-1.0-1 #MINVER#
  g_callable_info_load_arg@Base 0.9.2
  g_callable_info_load_return_type@Base 0.9.2
  g_callable_info_may_return_null@Base 0.9.2
- g_callable_info_prepare_closure@Base 0.9.2
+ g_callable_info_prepare_closure@Base 1.62.0-4~
  g_callable_info_skip_return@Base 1.29.0
  g_constant_info_free_value@Base 1.31.0
  g_constant_info_get_type@Base 0.9.2
@@ -95,6 +95,7 @@ libgirepository-1.0.so.1 libgirepository-1.0-1 #MINVER#
  g_irepository_get_info@Base 0.9.2
  g_irepository_get_loaded_namespaces@Base 0.9.2
  g_irepository_get_n_infos@Base 0.9.2
+ g_irepository_get_object_gtype_interfaces@Base 1.59.4
  g_irepository_get_option_group@Base 0.9.2
  g_irepository_get_search_path@Base 0.9.2
  g_irepository_get_shared_library@Base 0.9.2
@@ -159,13 +160,16 @@ libgirepository-1.0.so.1 libgirepository-1.0-1 #MINVER#
  g_struct_info_get_size@Base 0.9.2
  g_struct_info_is_foreign@Base 0.9.2
  g_struct_info_is_gtype_struct@Base 0.9.2
+ g_type_info_argument_from_hash_pointer@Base 1.66.0
  g_type_info_get_array_fixed_size@Base 0.9.2
  g_type_info_get_array_length@Base 0.9.2
  g_type_info_get_array_type@Base 0.9.2
- g_type_info_get_ffi_type@Base 0.9.2
+ g_type_info_get_ffi_type@Base 1.62.0-4~
  g_type_info_get_interface@Base 0.9.2
  g_type_info_get_param_type@Base 0.9.2
+ g_type_info_get_storage_type@Base 1.66.0
  g_type_info_get_tag@Base 0.9.2
+ g_type_info_hash_pointer_from_argument@Base 1.66.0
  g_type_info_is_pointer@Base 0.9.2
  g_type_info_is_zero_terminated@Base 0.9.2
  g_type_tag_to_string@Base 0.9.2
@@ -196,5 +200,8 @@ libgirepository-1.0.so.1 libgirepository-1.0-1 #MINVER#
  g_vfunc_info_get_signal@Base 0.9.2
  g_vfunc_info_invoke@Base 0.10.2
  gi_cclosure_marshal_generic@Base 0.9.2
- gi_type_info_extract_ffi_return_value@Base 1.31.22
- gi_type_tag_get_ffi_type@Base 0.10.0
+ gi_get_major_version@Base 1.59.4
+ gi_get_micro_version@Base 1.59.4
+ gi_get_minor_version@Base 1.59.4
+ gi_type_info_extract_ffi_return_value@Base 1.62.0-4~
+ gi_type_tag_get_ffi_type@Base 1.62.0-4~

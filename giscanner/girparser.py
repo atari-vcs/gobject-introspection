@@ -18,18 +18,14 @@
 # Boston, MA 02111-1307, USA.
 #
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 
 from collections import OrderedDict
-from xml.etree.cElementTree import parse
+from xml.etree.ElementTree import parse
 
 from . import ast
 from .girwriter import COMPATIBLE_GIR_VERSION
+from .message import Position
 
 CORE_NS = "http://www.gtk.org/introspection/core/1.0"
 C_NS = "http://www.gtk.org/introspection/c/1.0"
@@ -79,17 +75,17 @@ class GIRParser(object):
 
     def _find_first_child(self, node, name_or_names):
         if isinstance(name_or_names, str):
-            for child in node.getchildren():
+            for child in node:
                 if child.tag == name_or_names:
                     return child
         else:
-            for child in node.getchildren():
+            for child in node:
                 if child.tag in name_or_names:
                     return child
         return None
 
     def _find_children(self, node, name):
-        return [child for child in node.getchildren() if child.tag == name]
+        return [child for child in node if child.tag == name]
 
     def _get_current_file(self):
         if not self._filename_stack:
@@ -107,7 +103,7 @@ class GIRParser(object):
             raise SystemExit("%s: Incompatible version %s (supported: %s)" %
                              (self._get_current_file(), version, COMPATIBLE_GIR_VERSION))
 
-        for node in root.getchildren():
+        for node in root:
             if node.tag == _corens('include'):
                 self._parse_include(node)
             elif node.tag == _corens('package'):
@@ -142,16 +138,23 @@ class GIRParser(object):
             _corens('interface'): self._parse_object_interface,
             _corens('record'): self._parse_record,
             _corens('union'): self._parse_union,
+            _corens('docsection'): self._parse_doc_section,
             _glibns('boxed'): self._parse_boxed}
 
         if not self._types_only:
             parser_methods[_corens('constant')] = self._parse_constant
+            parser_methods[_corens('function-macro')] = self._parse_function_macro
             parser_methods[_corens('function')] = self._parse_function
 
-        for node in ns.getchildren():
+        for node in ns:
             method = parser_methods.get(node.tag)
             if method is not None:
                 method(node)
+
+    def _parse_doc_section(self, node):
+        docsection = ast.DocSection(node.attrib["name"])
+        self._parse_generic_attribs(node, docsection)
+        self._namespace.append(docsection)
 
     def _parse_include(self, node):
         include = ast.Include(node.attrib['name'], node.attrib['version'])
@@ -189,6 +192,9 @@ class GIRParser(object):
         if doc is not None:
             if doc.text:
                 obj.doc = doc.text
+                obj.doc_position = Position(doc.attrib.get('filename', '<unknown>'),
+                                            doc.attrib.get('line', None),
+                                            doc.attrib.get('column', None))
         version = node.attrib.get('version')
         if version:
             obj.version = version
@@ -218,6 +224,20 @@ class GIRParser(object):
                 value = attribute.attrib.get('value')
                 attributes_[name] = value
             obj.attributes = attributes_
+
+        if hasattr(obj, 'add_file_position'):
+            positions = sorted(node.findall(_corens('source-position')),
+                               key=lambda x: (x.attrib['filename'],
+                                              int(x.attrib['line'])))
+            for position in positions:
+                if 'column' in position.attrib:
+                    column = int(position.attrib['column'])
+                else:
+                    column = None
+
+                obj.add_file_position(Position(position.attrib['filename'],
+                                               int(position.attrib['line']),
+                                               column))
 
     def _parse_object_interface(self, node):
         parent = node.attrib.get('parent')
@@ -296,6 +316,23 @@ class GIRParser(object):
     def _parse_function(self, node):
         function = self._parse_function_common(node, ast.Function)
         self._namespace.append(function)
+
+    def _parse_function_macro(self, node):
+        name = node.attrib['name']
+        symbol = node.attrib.get(_cns('identifier'))
+        parameters = []
+        parameters_node = node.find(_corens('parameters'))
+        if (parameters_node is not None):
+            for paramnode in self._find_children(parameters_node, _corens('parameter')):
+                param = ast.Parameter(paramnode.attrib.get('name'), None)
+                parameters.append(param)
+                self._parse_generic_attribs(paramnode, param)
+
+        func = ast.FunctionMacro(name, parameters, symbol)
+        self._parse_generic_attribs(node, func)
+
+        self._namespace.track(func)
+        self._namespace.append(func)
 
     def _parse_parameter(self, node):
         typeval = self._parse_type(node)
@@ -382,7 +419,7 @@ class GIRParser(object):
     def _parse_fields(self, node, obj):
         res = []
         names = (_corens('field'), _corens('record'), _corens('union'), _corens('callback'))
-        for child in node.getchildren():
+        for child in node:
             if child.tag in names:
                 fieldobj = self._parse_field(child, obj)
                 res.append(fieldobj)
@@ -529,7 +566,7 @@ class GIRParser(object):
     def _parse_field(self, node, parent):
         type_node = None
         anonymous_node = None
-        if node.tag in map(_corens, ('record', 'union')):
+        if node.tag in map(_corens, ('callback', 'record', 'union')):
             anonymous_elt = node
         else:
             anonymous_elt = self._find_first_child(node, _corens('callback'))

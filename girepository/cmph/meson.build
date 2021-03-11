@@ -26,12 +26,29 @@ cmph_sources = [
 
 cmph_deps = [
   glib_dep,
+  gobject_dep,
   cc.find_library('m', required: false),
 ]
 
+custom_c_args = []
+
+if cc.get_id() != 'msvc'
+  custom_c_args = cc.get_supported_arguments([
+    '-Wno-implicit-fallthrough',
+    '-Wno-old-style-definition',
+    '-Wno-suggest-attribute=noreturn',
+    '-Wno-type-limits',
+    '-Wno-undef',
+    '-Wno-unused-parameter',
+    '-Wno-cast-align',
+    '-Wno-unused-function',
+    '-Wno-return-type',
+  ])
+endif
+
 cmph = static_library('cmph',
   sources: cmph_sources,
-  c_args: gi_hidden_visibility_cflags,
+  c_args: gi_hidden_visibility_cflags + custom_c_args,
   dependencies: cmph_deps,
 )
 
@@ -40,11 +57,20 @@ cmph_dep = declare_dependency(
   include_directories: include_directories('.'),
 )
 
+if cc.get_id() != 'msvc'
+  custom_c_args = cc.get_supported_arguments([
+    '-Wno-old-style-definition',
+    '-Wno-type-limits',
+  ])
+endif
+
 cmph_test = executable('cmph-bdz-test', '../cmph-bdz-test.c',
   dependencies: [
     cmph_dep,
     glib_dep,
-  ]
+    gobject_dep,
+  ],
+  c_args: custom_c_args,
 )
 
 test('cmph-bdz-test', cmph_test)
